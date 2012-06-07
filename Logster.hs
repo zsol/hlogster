@@ -20,15 +20,18 @@ metrics = [metrics1]
 --     showSecond (x,y) = (x, show y)
 tokenize = map words
 
-processList :: [Line] -> [[[Line]] -> (String, Float)] -> IO ()
-processList lines metrics = sequence_ (fmap ((sendTo oam2) . (applyMetric lines)) metrics)
-  where
-    applyMetric :: [Line] -> ([[Line]] -> (String, Float)) -> (String, String)
-    applyMetric lines metric = showSecond (metric (tokenize lines))
+applyMetric :: [[String]] -> ([[Line]] -> (String, Float)) -> (String, String)
+applyMetric tokenized_lines metric = showSecond (metric tokenized_lines) where
     showSecond (x,y) = (x, show y)
+
+--processList :: [Line] -> [[[Line]] -> (String, Float)] -> IO ()
+processList lines metrics send = sequence_ (map send results)  where
+	tokenized_lines = tokenize lines
+  	results = map (applyMetric tokenized_lines) metrics
 
 
 main = do
   --processList' ["1", "2", "3"] metric1
-  input <- getContents
-  processList (lines input) metrics
+  processList inp metrics print
+  -- input <- getContents
+  -- processList (lines input) metrics (sendTo localhost)
