@@ -31,7 +31,6 @@ processList lines metrics send = sequence_ (map send results)  where
 
 
 main = do
-  --processList' ["1", "2", "3"] metric1
   processList inp metrics print
   -- input <- getContents
   -- processList (lines input) metrics (sendTo localhost)
