@@ -1,16 +1,14 @@
-module Metric1 (metrics1) where
+module Metric1 (count_events, Metric, MetricFun) where
 
 import Data.List.Split (splitOn)
+type MetricFun = [[String]] -> Int
+type Metric = (String, MetricFun)
 
-aux True acc = acc + 1
-aux _ acc = acc
-countTrue l = (foldr aux 0 l)
+match_cat tokens cat = tokens !! 3 == cat
+fn_name tokens = (splitOn ":" (tokens !! 5)) !! 1
+match_fn_name tokens fn = fn_name tokens == fn
+match_cat_and_fn cat fn tokens = (match_cat tokens cat) && (match_fn_name tokens fn)
 
-match_category_and_function cname fname fields = if ( fields !! 3 == cname) && (((splitOn ":" (fields !! 5 )) !! 1) == fname) then True else False
+count_events :: String -> String -> [[String]] -> Int
 
-metrics1 tokenized =
-	("hlogster.usage.vacak", countTrue (map filter_usage_presentations_delete tokenized))
-	where 
-		filter_usage_presentations_delete = match_category_and_function "usage" "presentations_delete"
-
-
+count_events cat fn lines =   (length (filter (match_cat_and_fn cat fn) lines))
