@@ -1,14 +1,17 @@
-module Metric1 (count_events, Metric, MetricFun) where
+module Metric1 (countEvents, Metric, MetricFun) where
 
 import Data.List.Split (splitOn)
 type MetricFun = [[String]] -> Int
 type Metric = (String, MetricFun)
 
-match_cat tokens cat = tokens !! 3 == cat
-fn_name tokens = (splitOn ":" (tokens !! 5)) !! 1
-match_fn_name tokens fn = fn_name tokens == fn
-match_cat_and_fn cat fn tokens = (match_cat tokens cat) && (match_fn_name tokens fn)
+matchCat :: Eq a => [a] -> a -> Bool
+matchCat tokens cat = tokens !! 3 == cat
+fnName :: [String] -> String
+fnName tokens = splitOn ":" (tokens !! 5) !! 1
+matchFnName :: [String] -> String -> Bool
+matchFnName tokens fn = fnName tokens == fn
+matchCatAndFn :: String -> String -> [String] -> Bool
+matchCatAndFn cat fn tokens = matchCat tokens cat && (matchFnName tokens fn)
 
-count_events :: String -> String -> [[String]] -> Int
-
-count_events cat fn lines =   (length (filter (match_cat_and_fn cat fn) lines))
+countEvents :: String -> String -> [[String]] -> Int
+countEvents cat fn = length . filter (matchCatAndFn cat fn)
