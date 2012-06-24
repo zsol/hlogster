@@ -1,5 +1,6 @@
 import Carbon
 import Metric1
+import Prelude hiding (lines)
 
 type Line = String
 
@@ -13,8 +14,8 @@ inp = replicate 5 s ++ replicate 5 s2
 
 metric1 :: Metric
 metric1 = ("presentations_delete", countEvents "usage" "presentations_delete")
-metric2 :: (String, [[String]] -> Int)
-metric2 = ("feature.label_zoom", countEvents "feature" "label_zoom")
+metric2 :: Metric
+metric2 = ("feature.label_zoom", countEvents "feature" "label_zoom") 
 
 
 -- processList' lines metric = sendTo localhost $ showSecond $ metric lines
@@ -38,5 +39,5 @@ countMetric input =
 main :: IO ()
 main = do
   print (countMetric inp)
-  --input <- getContents
-  --processList (lines input) metrics (sendTo localhost)
+  input <- getContents
+  processList (lines input) metrics (sendTo localhost)
