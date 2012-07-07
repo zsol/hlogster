@@ -10,18 +10,21 @@ module Metric (
 import Data.List.Split (splitOn)
 import Control.Monad ((>=>))
 import Text.JSON
+import Parsers
+import Data.Maybe
 
 type MetricFun = [String] -> Float
 data Metric = Metric {
   name :: String,
   apply :: MetricFun
-  }
-
-getCategoryAndEvent :: String -> (String, String)
-getCategoryAndEvent line = let tokens = words line in (tokens !! 3, splitOn ":" (tokens !! 5) !! 1)
+  }  
 
 countEvents :: String -> String -> MetricFun
-countEvents category eventId = fromIntegral . length . filter (((category, eventId) ==) . getCategoryAndEvent)
+countEvents category eventId = fromIntegral . length . filter (((category, eventId) ==) . categoryAndEvent)
+  where
+    categoryAndEvent line = case getCategoryAndEvent line of
+      Right a -> a
+      Left _ -> ("", "") -- TODO
 
 makeEventCounter :: JSObject JSValue -> Result Metric
 makeEventCounter obj = let (!) = flip valFromObj in do
