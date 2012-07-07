@@ -1,5 +1,5 @@
 module Carbon
-       (sendTo, oam2, oam3, localhost)
+       (sendTo, oam2, oam3, localhost, withStream, sendToCarbon)
        where
 
 import System.IO (hPutStrLn, Handle)
