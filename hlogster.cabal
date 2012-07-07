@@ -51,7 +51,7 @@ Executable hlogster
      Main-is: Logster.hs
   
   -- Packages needed in order to build this package.
-     Build-depends: base, network-fancy, split, time
+     Build-depends: base, network-fancy, split, time, json
   
   -- Modules not exported by this package.
   -- Other-modules:       
