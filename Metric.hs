@@ -10,7 +10,8 @@ module Metric (
 import Control.Monad ((>=>))
 import Text.JSON
 import Parsers
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString.Char8 as SB
 
 type MetricFun = [B.ByteString] -> Float
 data Metric = Metric {
@@ -26,7 +27,7 @@ countEvents category eventId = fromIntegral . length . events
       | (category, eventId) == categoryAndEvent l = () : events ls
       | otherwise                                    = events ls
     categoryAndEvent line = case getCategoryAndEvent line of
-      Right (a,b) -> (B.unpack a, B.unpack b)
+      Right (a,b) -> (SB.unpack a, SB.unpack b)
       Left _ -> ("", "") -- TODO
 
 makeEventCounter :: JSObject JSValue -> Result Metric
