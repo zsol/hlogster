@@ -61,15 +61,16 @@ do
         continue
     fi
 
-    tmp=$(mktemp -t hlogster)
+    tmp=$(mktemp)
     nc -l 2003 > $tmp 2>&1 &
+    nc_pid=$!
     $hlogster $t/metrics.json < $t/input.txt
     if [ $? -ne 0 ]; then
         echo Error: hlogster exited with code $?
-        kill $!
+        kill $nc_pid
         ret=5
     fi
-    wait $!
+    wait $nc_pid
 
     actual=$(cat $tmp | awk '{print $1 " " $2}')
     expected=`cat $t/output.txt`
