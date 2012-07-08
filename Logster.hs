@@ -7,6 +7,7 @@ import Control.Parallel.Strategies
 
 type Line = String
 
+main :: IO ()
 main = do
   args <- getArgs
   if null args then error "Please specify a config file as the single argument" else return ()
@@ -15,6 +16,7 @@ main = do
     Left message -> error message
     Right metrics -> run metrics
   where
+    getResults input metric = (name metric, show $ apply metric (B.split '\n' input))
     run metrics = do
       input <- B.getContents
-      withStream localhost (\handle -> mapM_ (flip sendToCarbon handle) (parMap rdeepseq (\metric -> (name metric, show $ apply metric (B.split '\n' input))) metrics))
+      withStream localhost (\handle -> mapM_ (flip sendToCarbon handle) (parMap rdeepseq (getResults input) metrics))
