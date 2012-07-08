@@ -16,7 +16,7 @@ hlogster=../dist/build/hlogster/hlogster
 port=2003
 tests=$(ls -l | grep '^d' | awk '{print $9}')
 
-while getopts ":b:p:" opt; do
+while getopts ":b:p:t:" opt; do
     case $opt in
         b)
             hlogster=$OPTARG
