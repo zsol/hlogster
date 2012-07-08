@@ -2,29 +2,28 @@
 module Parsers
        (getCategoryAndEvent)
        where
-import Text.Parsec hiding (endBy)
-import Data.List.Split (endBy)
-import Data.Char (isSpace)
+import Data.Attoparsec
+import qualified Data.ByteString.Char8 as B
 
-nonspace :: Stream s m Char => ParsecT s u m Char
-nonspace = satisfy $ not . isSpace
+spaces :: Parser ()
+spaces = skipWhile $ inClass " \t"
 
-field :: Stream s m Char => ParsecT s u m String
+field_ :: Parser ()
+field_ = (skipWhile $ notInClass " \t") >> spaces
+
+field :: Parser B.ByteString
 field = do
-  ret <- many1 nonspace
+  ret <- takeWhile1 $ notInClass " \t"
   spaces
   return ret
 
-field_ :: Stream s m Char => ParsecT s u m ()
-field_ = (skipMany1 space) <|> (anyChar >> field_)
-
-categoryAndEvent :: Stream s m Char => ParsecT s u m (String, String)
+categoryAndEvent :: Parser (B.ByteString, B.ByteString)
 categoryAndEvent = do
   count 3 field_
   category <- field
   count 2 field_
   event <- field
-  return (category, last $ endBy ":" event)
+  return (category, last $ B.split  ':' event)
 
---getCategoryAndEvent :: Stream s Data.Functor.Identity.Identity Char => s -> Either ParseError (String, String)
-getCategoryAndEvent = parse categoryAndEvent ""
+getCategoryAndEvent :: B.ByteString -> Either String (B.ByteString, B.ByteString)
+getCategoryAndEvent = eitherResult . parse categoryAndEvent

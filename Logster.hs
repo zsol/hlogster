@@ -1,7 +1,7 @@
 import Carbon
 import Metric
 import System.Environment
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as B
 import Data.Char (ord)
 
 type Line = String
