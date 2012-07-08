@@ -48,16 +48,21 @@ else
     echo Test cases to run: $tests
 fi
 
+ret=0
+
 for t in $tests
 do
     echo -n Case \"$t\":' '
     if [ ! -f $t/input.txt ]; then
         echo ERROR: Input file $t/input.txt not found
+        ret=2
         continue
     elif [ ! -f $t/output.txt ]; then
+        ret=3
         echo Error: Expected output file $t/output.txt not found
         continue
     elif [ ! -f $t/metrics.json ]; then
+        ret=4
         echo Error: Metrics file $t/metrics.json not found
         continue
     fi
@@ -68,7 +73,7 @@ do
     if [ $? -ne 0 ]; then
         echo Error: hlogster exited with code $?
         kill $!
-        exit 5
+        ret=5
     fi
     wait $!
 
@@ -81,8 +86,11 @@ do
         cat $t/output.txt
         echo Actual:
         awk '{print $1 " " $2}' $tmp
+        ret=1
     else
         echo PASS
     fi
     rm $tmp
 done
+
+exit $ret
