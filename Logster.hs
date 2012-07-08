@@ -1,6 +1,8 @@
 import Carbon
 import Metric
 import System.Environment
+import qualified Data.ByteString.Lazy as B
+import Data.Char (ord)
 
 type Line = String
 
@@ -15,6 +17,6 @@ main = do
   where
     run :: [Metric] -> IO ()
     run metrics = do
-      input <- getContents
-      withStream localhost (\handle -> mapM_ (\metric -> sendToCarbon (name metric, show $ apply metric (lines input)) handle) metrics)
+      input <- B.getContents
+      withStream localhost (\handle -> mapM_ (\metric -> sendToCarbon (name metric, show $ apply metric (B.split (fromIntegral $ ord '\n') input)) handle) metrics)
 

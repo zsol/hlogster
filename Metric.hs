@@ -7,21 +7,24 @@ module Metric (
   parseConfig
   ) where
 
-import Data.List.Split (splitOn)
 import Control.Monad ((>=>))
 import Text.JSON
 import Parsers
-import Data.Maybe
+import qualified Data.ByteString.Lazy as B
 
-type MetricFun = [String] -> Float
+type MetricFun = [B.ByteString] -> Float
 data Metric = Metric {
   name :: String,
   apply :: MetricFun
   }  
 
 countEvents :: String -> String -> MetricFun
-countEvents category eventId = fromIntegral . length . filter (((category, eventId) ==) . categoryAndEvent)
+countEvents category eventId = fromIntegral . length . events
   where
+    events [] = []
+    events (l:ls)
+      | (category, eventId) == categoryAndEvent l = () : events ls
+      | otherwise                                    = events ls
     categoryAndEvent line = case getCategoryAndEvent line of
       Right a -> a
       Left _ -> ("", "") -- TODO
