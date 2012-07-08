@@ -1,0 +1,14 @@
+[
+  {
+    "type": "eventCounter",
+    "name": "presentations_delete",
+    "category": "usage",
+    "event": "presentations_delete"
+  },
+  {
+    "type": "eventCounter",
+    "name": "feature.label_zoom",
+    "category": "feature",
+    "event": "label_zoom"
+  }
+]

@@ -1,0 +1,2 @@
+presentations_delete 5.0
+feature.label_zoom 0.0
