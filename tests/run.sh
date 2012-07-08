@@ -7,7 +7,7 @@
 #   * input.txt: log lines passed to hlogster on stdin
 #   * output.txt: expected output sent to Graphite, without the timestamps
 #
-# Usage: ./run.sh [-b hlogster_binary_path] [-p graphite_port] [-t testcase[ testcase...]]
+# Usage: ./run.sh [-b hlogster_binary_path] [-p graphite_port] [-t "testcase[ testcase...]"]
 #
 # If -t is omitted, all directories on cwd are treated as test cases and run
 #
@@ -34,12 +34,6 @@ if [ ! -f $hlogster ]; then
     echo Error: hlogster binary not found at $hlogster
     exit 1
 fi
-
-for t in $tests; do
-    if [ ! -d "$t" ]; then
-        echo Test $t not found, skipping
-    fi
-done
 
 if [[ $tests == '' ]]; then
     echo No tests to run
