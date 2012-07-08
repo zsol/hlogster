@@ -58,7 +58,7 @@ Executable hlogster
   
   -- Packages needed in order to build this package.
     Build-depends: base, network-fancy, split, time, json, attoparsec, bytestring, parallel
-    GHC-Options: -O2 -threaded -feager-blackholing
+    GHC-Options: -O2 -threaded -feager-blackholing -with-rtsopts=-N
   -- Modules not exported by this package.
     Other-modules: Metric, Parsers, Carbon
   
