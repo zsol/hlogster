@@ -34,6 +34,12 @@ Maintainer:          zsol.zsol@gmail.com
 -- A copyright notice.
 -- Copyright:           
 
+Stability: alpha
+
+Bug-reports: https://github.com/zsol/hlogster/issues/new
+
+Data-dir: examples
+
 Category:            Data
 
 Build-type:          Simple
@@ -48,13 +54,13 @@ Cabal-version:       >=1.2
 
 Executable hlogster
   -- .hs or .lhs file containing the Main module.
-     Main-is: Logster.hs
+    Main-is: Logster.hs
   
   -- Packages needed in order to build this package.
-     Build-depends: base, network-fancy, split, time, json, attoparsec, bytestring
-  
+    Build-depends: base, network-fancy, split, time, json, attoparsec, bytestring, parallel
+    GHC-Options: -O2 -threaded -feager-blackholing
   -- Modules not exported by this package.
-  -- Other-modules:       
+    Other-modules: Metric, Parsers, Carbon
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
