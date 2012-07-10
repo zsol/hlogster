@@ -4,6 +4,7 @@ module Metric (
   name,
   apply,
   countEvents,
+  countFields,
   parseConfig
   ) where
 
@@ -19,30 +20,49 @@ data Metric = Metric {
   apply :: MetricFun
   }  
 
-countEvents :: String -> String -> MetricFun
+countEvents :: SB.ByteString -> SB.ByteString -> MetricFun
 countEvents category eventId = fromIntegral . length . events
   where
     events [] = []
     events (l:ls)
       | (category, eventId) == categoryAndEvent l = () : events ls
-      | otherwise                                    = events ls
+      | otherwise                                 = events ls
     categoryAndEvent line = case getCategoryAndEvent line of
-      Right (a,b) -> (SB.unpack a, SB.unpack b)
-      Left _ -> ("", "") -- TODO
+      Right a -> a
+      Left _ -> (SB.pack "", SB.pack "") -- TODO
 
-makeEventCounter :: JSObject JSValue -> Result Metric
-makeEventCounter obj = let (!) = flip valFromObj in do
-  nameString <- obj ! "name"
+makeEventCounter :: String -> JSObject JSValue -> Result Metric
+makeEventCounter nameString obj = let (!) = flip valFromObj in do
   category <- obj ! "category"
   event <- obj ! "event"
-  return $ Metric {name = nameString, apply = countEvents category event}
+  return $ Metric {name = nameString, apply = countEvents (SB.pack category) (SB.pack event)}
+
+countFields :: [(Int, SB.ByteString)] -> MetricFun
+countFields spec = fromIntegral . length . matchingFields
+  where
+    matchingFields [] = []
+    matchingFields (l:ls)
+      | map snd spec == selectedFields l = () : matchingFields ls
+      | otherwise                        = matchingFields ls
+    selectedFields line = case getFields (map fst spec) line of
+      Right a -> a
+      Left _ -> []
+
+makeFieldCounter :: String -> JSObject JSValue -> Result Metric
+makeFieldCounter nameString obj = let (!) = flip valFromObj in do
+  fieldsSpec <- obj ! "fields"
+  return $ Metric {name = nameString, apply = countFields fieldsSpec}
+  
 
 makeMetric :: JSObject JSValue -> Result Metric
 makeMetric obj = let (!) = flip valFromObj in do
   typeString <- obj ! "type"
-  case typeString of
-    "eventCounter" -> makeEventCounter obj
-    _ -> Error "unknown metric type"
+  nameString <- obj ! "name"
+  let factory = case typeString of
+        "eventCounter" -> makeEventCounter
+        "fieldCounter" -> makeFieldCounter
+        _ -> \_ _ -> Error "unknown metric type"
+    in factory nameString obj
 
 parseConfig :: String -> Either String [Metric]
 parseConfig = toEither . (decode >=> mapM makeMetric)
