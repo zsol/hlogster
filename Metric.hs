@@ -3,8 +3,6 @@ module Metric (
   MetricFun,
   name,
   apply,
-  countEvents,
-  countFields,
   parseConfig
   ) where
 
@@ -18,7 +16,7 @@ type MetricFun = [B.ByteString] -> Float
 data Metric = Metric {
   name :: String,
   apply :: MetricFun
-  }  
+  }
 
 countEvents :: SB.ByteString -> SB.ByteString -> MetricFun
 countEvents category eventId = fromIntegral . length . events
@@ -68,4 +66,4 @@ parseConfig :: String -> Either String [Metric]
 parseConfig = toEither . (decode >=> mapM makeMetric)
   where
     toEither (Ok a)    = Right a
-    toEither (Error a) = Left a
+    toEither (Error a) = Left $ "Failed to parse config: " ++ a

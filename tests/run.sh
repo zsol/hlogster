@@ -5,12 +5,35 @@
 # Tests are defined as directories cantaining
 #   * metrics.json: metric definitions to use (argument to hlogster)
 #   * input.txt: log lines passed to hlogster on stdin
-#   * output.txt: expected output sent to Graphite, without the timestamps
+#
+# And any number of the following:
+#   * tcp.txt: expected output sent to Graphite, without the timestamps; no check done if doesn't exist
+#   * stdout.txt: standard output of hlogster; no check done if doesn't exist
+#   * stderr.txt: standard error of hlogster; no check done if doesn't exist
+#   * retval.txt: return code of hlogster; defaults to 0
 #
 # Usage: ./run.sh [-b hlogster_binary_path] [-p graphite_port] [-t "testcase[ testcase...]"]
 #
 # If -t is omitted, all directories on cwd are treated as test cases and run
 #
+
+function assertEquals
+{
+    expected=`cat $1`
+    actual=`cat $2`
+    name=$3
+
+    if [[ "$expected" != "$actual" ]]; then
+        echo "  FAIL: $name"
+        echo "    Expected:"
+        cat $1 | awk '{print "      " $0}'
+        echo "    Actual:"
+        cat $2 | awk '{print "      " $0}'
+    else
+        echo "  PASS($name)"
+    fi
+}
+
 
 hlogster=../dist/build/hlogster/hlogster
 port=2003
@@ -31,7 +54,7 @@ while getopts ":b:p:t:" opt; do
 done
 
 if [ ! -f $hlogster ]; then
-    echo Error: hlogster binary not found at $hlogster
+    echo ERROR: hlogster binary not found at $hlogster
     exit 1
 fi
 
@@ -46,46 +69,53 @@ ret=0
 
 for t in $tests
 do
-    echo -n Case \"$t\":' '
+    echo Case \"$t\"
     if [ ! -f $t/input.txt ]; then
-        echo ERROR: Input file $t/input.txt not found
+        echo "  ERROR: Input file $t/input.txt not found"
         ret=2
         continue
-    elif [ ! -f $t/output.txt ]; then
-        ret=3
-        echo Error: Expected output file $t/output.txt not found
-        continue
     elif [ ! -f $t/metrics.json ]; then
-        ret=4
-        echo Error: Metrics file $t/metrics.json not found
+        ret=3
+        echo "  ERROR: Metrics file $t/metrics.json not found"
         continue
     fi
 
-    tmp=$(mktemp)
-    nc -l 2003 > $tmp 2>&1 &
+    tcp=$(mktemp hlogster.XXXXX)
+    stdout=$(mktemp hlogster.XXXXX)
+    stderr=$(mktemp hlogster.XXXXX)
+    nc -l 2003 | awk '{print $1 " " $2}' > $tcp 2>&1 &
     nc_pid=$!
-    $hlogster $t/metrics.json < $t/input.txt
-    if [ $? -ne 0 ]; then
-        echo Error: hlogster exited with code $?
+    $hlogster $t/metrics.json >$stdout 2>$stderr < $t/input.txt
+
+    if [ -f $t/retval.txt ]; then
+        expected_retval=$(cat $t/retval.txt)
+    else
+        expected_retval=0
+    fi
+
+    if [ $? -ne $expected_retval ]; then
+        echo "  FAIL(retval): hlogster exited with code $?, expected $exepcted_retval"
         kill $nc_pid
         ret=5
-    fi
-    wait $nc_pid
-
-    actual=$(cat $tmp | awk '{print $1 " " $2}')
-    expected=`cat $t/output.txt`
-
-    if [[ "$actual" != "$expected" ]]; then
-        echo FAIL
-        echo Expected:
-        cat $t/output.txt
-        echo Actual:
-        awk '{print $1 " " $2}' $tmp
-        ret=1
     else
-        echo PASS
+        wait $nc_pid
     fi
-    rm $tmp
+
+    if [ -f $t/tcp.txt ]; then
+        assertEquals $t/tcp.txt $tcp 'TCP'
+    fi
+
+    if [ -f $t/stdout.txt ]; then
+        assertEquals $t/stdout.txt $stdout 'STDOUT'
+    fi
+
+    if [ -f $t/stderr.txt ]; then
+        assertEquals $t/stderr.txt $stderr 'STDERR'
+    fi
+
+    rm $tcp
+    rm $stdout
+    rm $stderr
 done
 
 exit $ret
