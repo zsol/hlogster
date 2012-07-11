@@ -17,6 +17,10 @@
 # If -t is omitted, all directories on cwd are treated as test cases and run
 #
 
+pass=0
+fail=0
+error=0
+
 function assertEquals
 {
     expected=`cat $1`
@@ -24,12 +28,14 @@ function assertEquals
     name=$3
 
     if [[ "$expected" != "$actual" ]]; then
+        fail=$(expr $fail + 1)
         echo "  FAIL: $name"
         echo "    Expected:"
         cat $1 | awk '{print "      " $0}'
         echo "    Actual:"
         cat $2 | awk '{print "      " $0}'
     else
+        pass=$(expr $pass + 1)
         echo "  PASS($name)"
     fi
 }
@@ -72,10 +78,12 @@ do
     echo Case \"$t\"
     if [ ! -f $t/input.txt ]; then
         echo "  ERROR: Input file $t/input.txt not found"
+        error=$(expr $error + 1)
         ret=2
         continue
     elif [ ! -f $t/metrics.json ]; then
         ret=3
+        error=$(expr $error + 1)
         echo "  ERROR: Metrics file $t/metrics.json not found"
         continue
     fi
@@ -118,5 +126,7 @@ do
     rm $stdout
     rm $stderr
 done
+
+echo $pass assertions passed, $fail assertions failed, $error invalid test cases
 
 exit $ret
