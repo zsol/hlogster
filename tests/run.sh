@@ -97,7 +97,8 @@ do
         echo "  FAIL(retval): hlogster exited with code $?, expected $exepcted_retval"
         kill $nc_pid
         ret=5
-    else
+    fi
+    if [ $? -eq 0 ]; then
         wait $nc_pid
     fi
 
