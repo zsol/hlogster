@@ -1,8 +1,7 @@
 module Metric (
   Metric(Metric),
   MetricFun,
-  name,
-  apply,
+  getResults,
   parseConfig
   ) where
 
@@ -12,14 +11,20 @@ import Parsers
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
 
-type MetricFun = [B.ByteString] -> Float
+type MetricFun = [B.ByteString] -> [Float]
 data Metric = Metric {
-  name :: String,
-  apply :: MetricFun
+  apply :: MetricFun,
+  names :: [String]
   }
 
+getResults :: Metric -> [B.ByteString] -> [(String, String)]
+getResults metric input = zip (names metric) $ map show $ apply metric input
+
+toList :: t -> [t]
+toList a = [a]
+
 countEvents :: SB.ByteString -> SB.ByteString -> MetricFun
-countEvents category eventId = fromIntegral . length . events
+countEvents category eventId = toList . fromIntegral . length . events
   where
     events [] = []
     events (l:ls)
@@ -33,10 +38,10 @@ makeEventCounter :: String -> JSObject JSValue -> Result Metric
 makeEventCounter nameString obj = let (!) = flip valFromObj in do
   category <- obj ! "category"
   event <- obj ! "event"
-  return $ Metric {name = nameString, apply = countEvents (SB.pack category) (SB.pack event)}
+  return $ Metric {names = [nameString], apply = countEvents (SB.pack category) (SB.pack event)}
 
 countFields :: [(Int, SB.ByteString)] -> MetricFun
-countFields spec = fromIntegral . length . matchingFields
+countFields spec = toList . fromIntegral . length . matchingFields
   where
     matchingFields [] = []
     matchingFields (l:ls)
@@ -49,7 +54,7 @@ countFields spec = fromIntegral . length . matchingFields
 makeFieldCounter :: String -> JSObject JSValue -> Result Metric
 makeFieldCounter nameString obj = let (!) = flip valFromObj in do
   fieldsSpec <- obj ! "fields"
-  return $ Metric {name = nameString, apply = countFields fieldsSpec}
+  return $ Metric {names = [nameString], apply = countFields fieldsSpec}
   
 
 makeMetric :: JSObject JSValue -> Result Metric

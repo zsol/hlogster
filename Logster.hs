@@ -7,6 +7,9 @@ import Control.Parallel.Strategies
 
 type Line = String
 
+concatMapM_ :: Monad m => (a1 -> m a) -> [[a1]] -> m ()
+concatMapM_ f = mapM_ f . concat
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -16,7 +19,7 @@ main = do
     Left message -> error message
     Right metrics -> run metrics
   where
-    getResults input metric = (name metric, show $ apply metric (B.split '\n' input))
     run metrics = do
       input <- B.getContents
-      withStream localhost (\handle -> mapM_ (flip sendToCarbon handle) (parMap rdeepseq (getResults input) metrics))
+      let inputLines = B.split '\n' input
+      withStream localhost (\handle -> concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (flip getResults inputLines) metrics))
