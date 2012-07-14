@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
 module Parsers
-       (getCategoryAndEvent, getFields, getFieldsWithTime)
+       (getCategoryAndEvent, getFields, getFieldsWithTime, getDatetime)
        where
 import Data.Attoparsec.Lazy
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -14,9 +14,11 @@ datetime :: Parser UTCTime
 datetime = do
   date <- field
   time <- field
-  case parseTime defaultTimeLocale "%F %T,%q" ((SB.unpack date) ++ " " ++ (SB.unpack time)) of
+  case parseTime defaultTimeLocale "%F %T,%q" ((SB.unpack date) ++ " " ++ (SB.unpack time) ++ "000000000") of
     Just a -> return a
     _      -> fail "Invalid time format"
+
+getDatetime = eitherResult . parse datetime
 
 spaces :: Parser ()
 spaces = skipWhile $ inClass " \t"

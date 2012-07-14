@@ -19,7 +19,14 @@ main = do
     Left message -> error message
     Right metrics -> run metrics
   where
+    run :: [Metric] -> IO ()
     run metrics = do
       input <- B.getContents
       let inputLines = B.split '\n' input
-      withStream localhost (\handle -> concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (flip getResults inputLines) metrics))
+      withStream localhost (\handle -> concatMapM_ (flip sendToCarbon handle) (concat [ f inputLines | f <- (map (getResultsBufferedBySecond 5) metrics)]))
+
+{-
+ let (Right metrics) = parseConfig $ unsafePerformIO $ readFile "/Users/zsol/haskell/hlogster/metrics.json"
+ let inputLines = B.split '\n' $ unsafePerformIO $ B.readFile "/Users/zsol/teststoragelog"
+ let a = [ f inputLines | f <- (map (getResultsBufferedBySecond 5) metrics)]
+-}
