@@ -13,14 +13,21 @@ import qualified Data.CircularList as C
 import Control.Monad.State.Lazy
 import Data.CircularList
 import Data.Maybe
+import Data.Time.Format
+import Data.Time.Clock.POSIX
+import System.Locale
 
 type Metric = [B.ByteString] -> MetricState
-type Results = [(String, String)]
+type Timestamp = String
+type Results = [(String, String, Timestamp)]
 
 class IMetricState a
   where
     combine :: a -> a -> a
-    toResults :: a -> Results
+    toResults :: Timestamp -> a -> Results
+    toResultsNow :: a -> Results
+
+    toResultsNow = toResults ""
 
 data MetricState =
   CounterMetricState String Float |
@@ -44,8 +51,8 @@ instance IMetricState MetricState
       }
     combine _ _ = undefined
 
-    toResults (CounterMetricState name' a) = [(name', show a)]
-    toResults a = [ (name a ++ "." ++ x, show $ y a) | (x, y) <- zip ["min", "max", "avg", "count"] [min', max', avg', num']]
+    toResults timestamp (CounterMetricState name' a) = [(name', show a, timestamp)]
+    toResults timestamp a = [ (name a ++ "." ++ x, show $ y a, timestamp) | (x, y) <- zip ["min", "max", "avg", "count"] [min', max', avg', num']]
 
 countEvents :: SB.ByteString -> SB.ByteString -> String -> [B.ByteString] -> MetricState
 countEvents category eventId nameString input = CounterMetricState nameString (fromIntegral $ length $ events input)
@@ -97,7 +104,7 @@ parseConfig = toEither . (decode >=> mapM makeMetric)
     toEither (Error a) = Left $ "Failed to parse config: " ++ a
 
 getResults :: Metric -> [B.ByteString] -> Results
-getResults metric input = toResults $ metric input
+getResults metric input = toResultsNow $ metric input
 
 type Time = SB.ByteString
 type RingBuffer = CList (Time, MetricState)
@@ -107,6 +114,9 @@ getResultsBufferedBySecond maxSize metric input = evalState (process input) C.em
   where
     getTime :: B.ByteString -> Either String Time
     getTime line = getDatetime line
+
+    toTimestamp :: Time -> Timestamp
+    toTimestamp = init . show . utcTimeToPOSIXSeconds . fromJust . (parseTime defaultTimeLocale "%F %T") . SB.unpack 
 
     isNewer :: RingBuffer -> Time -> Bool
     isNewer buf time
@@ -139,7 +149,7 @@ getResultsBufferedBySecond maxSize metric input = evalState (process input) C.em
     process :: [B.ByteString] -> State RingBuffer [Results]
     process [] = do
       buf <- get
-      return $ map (toResults . snd) (C.toList buf)
+      return $ map (uncurry toResults . (\(x,y) -> (toTimestamp x, y))) (C.toList buf)
     process (i:is) = case getTime i of
       Left _ -> process is
       Right time -> do
@@ -149,7 +159,7 @@ getResultsBufferedBySecond maxSize metric input = evalState (process input) C.em
         put newBuf
         rest <- process is
         return $ case readyElem of
-          Just (_, metricState) -> toResults metricState
+          Just (time', metricState) -> toResults (toTimestamp time') metricState
           Nothing   -> []
           : rest
       

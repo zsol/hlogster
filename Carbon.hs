@@ -13,10 +13,11 @@ oam3 = IP "oam3.us.prezi.private" 2003
 localhost :: Address
 localhost = IP "localhost" 2003
 
-sendToCarbon :: (String, String) -> Handle -> IO ()
-sendToCarbon (key, value) handle = now >>= \time -> hPutStrLn handle (key ++ " " ++ value ++ " " ++ time)
+sendToCarbon :: (String, String, String) -> Handle -> IO ()
+sendToCarbon (key, value, "") handle = now >>= \time -> hPutStrLn handle (key ++ " " ++ value ++ " " ++ time)
+sendToCarbon (key, value, time) handle = hPutStrLn handle (key ++ " " ++ value ++ " " ++ time)
 
-sendTo :: Address -> (String, String) -> IO ()
+sendTo :: Address -> (String, String, String) -> IO ()
 sendTo address' = withStream address' . sendToCarbon
 
 now :: IO String
