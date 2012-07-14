@@ -14,8 +14,6 @@ import Control.Monad.State.Lazy
 import Data.CircularList
 import Data.Maybe
 
-import Debug.Trace
-
 type Metric = [B.ByteString] -> MetricState
 type Results = [(String, String)]
 
@@ -119,7 +117,6 @@ getResultsBufferedBySecond maxSize metric input = evalState (process input) C.em
     -- focus on buf is always on the newest element
     insertIntoBuf :: MetricState -> RingBuffer -> Time -> RingBuffer
     insertIntoBuf metricState buf time
---      | trace ("insert " ++ show time) False = undefined
       | isNewer buf time = C.insertL (time, metricState) buf
       | fst (fromJust (C.focus buf)) == time = C.update (time, combine (snd $ fromJust $ C.focus buf) metricState) buf
       | otherwise = C.rotL $ rotateToOldest $ insertIntoBuf metricState (C.rotL buf) time
