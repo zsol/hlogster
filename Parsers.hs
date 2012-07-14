@@ -3,20 +3,18 @@ module Parsers
        (getCategoryAndEvent, getFields, getFieldsWithTime, getDatetime)
        where
 import Data.Attoparsec.Lazy
+import qualified Data.Attoparsec.Char8 as A
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
 import Data.List (sort)
-import Data.Time.Clock
-import Data.Time.Format
-import System.Locale
 
-datetime :: Parser UTCTime
+datetime :: Parser Integer
 datetime = do
-  date <- field
-  time <- field
-  case parseTime defaultTimeLocale "%F %T,%q" ((SB.unpack date) ++ " " ++ (SB.unpack time) ++ "000000000") of
-    Just a -> return a
-    _      -> fail "Invalid time format"
+  date <- A.decimal `sepBy1` A.char '-'
+  A.char ' '
+  time <- A.decimal `sepBy1` A.char ':'
+  field_
+  return $ foldr (\(x,y) s -> s + x * y) 0 (zip [366*24*60*60, 31*24*60*60, 24*60*60, 60*60, 60, 1] (date ++ time))
 
 getDatetime = eitherResult . parse datetime
 
@@ -41,7 +39,7 @@ fields (n:ns) = do
   rest <- fields newns
   return (ret:rest)
 
-fieldsWithTime :: [Int] -> Parser (UTCTime, [SB.ByteString])
+fieldsWithTime :: [Int] -> Parser (Integer, [SB.ByteString])
 fieldsWithTime l = do
   time <- datetime
   rest <- fields $ map (flip (-) 2) l
@@ -50,7 +48,7 @@ fieldsWithTime l = do
 getFields :: [Int] -> B.ByteString -> Either String [SB.ByteString]
 getFields numbers = eitherResult . parse (fields $ sort numbers)
 
-getFieldsWithTime :: [Int] -> B.ByteString -> Either String (UTCTime, [SB.ByteString])
+getFieldsWithTime :: [Int] -> B.ByteString -> Either String (Integer, [SB.ByteString])
 getFieldsWithTime numbers = eitherResult . parse (fieldsWithTime $ sort numbers)
 
 categoryAndEvent :: Parser (SB.ByteString, SB.ByteString)

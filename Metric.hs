@@ -109,9 +109,7 @@ getResultsBufferedBySecond :: Int -> ([B.ByteString] -> MetricState) -> [B.ByteS
 getResultsBufferedBySecond maxSize metric input = evalState (process input) C.empty
   where
     getTime :: B.ByteString -> Either String Time
-    getTime line = case getDatetime line of
-      Right a -> Right $ truncate $ utcTimeToPOSIXSeconds a
-      Left a -> Left a
+    getTime line = getDatetime line
 
     isNewer :: RingBuffer -> Time -> Bool
     isNewer buf time
