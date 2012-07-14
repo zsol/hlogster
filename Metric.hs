@@ -13,7 +13,6 @@ import qualified Data.CircularList as C
 import Control.Monad.State.Lazy
 import Data.CircularList
 import Data.Maybe
-import Data.Time.Clock.POSIX
 
 import Debug.Trace
 
@@ -102,7 +101,7 @@ parseConfig = toEither . (decode >=> mapM makeMetric)
 getResults :: Metric -> [B.ByteString] -> Results
 getResults metric input = toResults $ metric input
 
-type Time = Integer
+type Time = SB.ByteString
 type RingBuffer = CList (Time, MetricState)
 
 getResultsBufferedBySecond :: Int -> ([B.ByteString] -> MetricState) -> [B.ByteString] -> [Results]

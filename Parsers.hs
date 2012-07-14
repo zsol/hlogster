@@ -3,19 +3,16 @@ module Parsers
        (getCategoryAndEvent, getFields, getFieldsWithTime, getDatetime)
        where
 import Data.Attoparsec.Lazy
-import qualified Data.Attoparsec.Char8 as A
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
 import Data.List (sort)
 
-datetime :: Parser Integer
+datetime :: Parser SB.ByteString
 datetime = do
-  date <- A.decimal `sepBy1` A.char '-'
-  A.char ' '
-  time <- A.decimal `sepBy1` A.char ':'
+  ret <- takeWhile1 $ notInClass ","
   field_
-  return $ foldr (\(x,y) s -> s + x * y) 0 (zip [366*24*60*60, 31*24*60*60, 24*60*60, 60*60, 60, 1] (date ++ time))
-
+  return ret
+  
 getDatetime = eitherResult . parse datetime
 
 spaces :: Parser ()
@@ -39,7 +36,7 @@ fields (n:ns) = do
   rest <- fields newns
   return (ret:rest)
 
-fieldsWithTime :: [Int] -> Parser (Integer, [SB.ByteString])
+fieldsWithTime :: [Int] -> Parser (SB.ByteString, [SB.ByteString])
 fieldsWithTime l = do
   time <- datetime
   rest <- fields $ map (flip (-) 2) l
@@ -48,7 +45,7 @@ fieldsWithTime l = do
 getFields :: [Int] -> B.ByteString -> Either String [SB.ByteString]
 getFields numbers = eitherResult . parse (fields $ sort numbers)
 
-getFieldsWithTime :: [Int] -> B.ByteString -> Either String (Integer, [SB.ByteString])
+getFieldsWithTime :: [Int] -> B.ByteString -> Either String (SB.ByteString, [SB.ByteString])
 getFieldsWithTime numbers = eitherResult . parse (fieldsWithTime $ sort numbers)
 
 categoryAndEvent :: Parser (SB.ByteString, SB.ByteString)
