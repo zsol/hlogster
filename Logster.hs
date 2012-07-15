@@ -23,7 +23,7 @@ main = do
     run metrics = do
       input <- B.getContents
       let inputLines = B.split '\n' input
-      withStream localhost (\handle -> concatMapM_ (flip sendToCarbon handle) (concat [ f inputLines | f <- (map (getResultsBufferedBySecond 5) metrics)]))
+      withStream localhost (\handle -> concatMapM_ (flip sendToCarbon handle) (concat ([ f inputLines | f <- (map (getResultsBufferedBySecond 5) metrics)] `using` parTraversable rdeepseq)))
 
 {-
  let (Right metrics) = parseConfig $ unsafePerformIO $ readFile "/Users/zsol/haskell/hlogster/metrics.json"
