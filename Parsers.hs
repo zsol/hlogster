@@ -1,11 +1,19 @@
 {-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
 module Parsers
-       (getCategoryAndEvent, getFields)
+       (getCategoryAndEvent, getFields, getFieldsWithTime, getDatetime)
        where
 import Data.Attoparsec.Lazy
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
 import Data.List (sort)
+
+datetime :: Parser SB.ByteString
+datetime = do
+  ret <- takeWhile1 $ notInClass ","
+  field_
+  return ret
+  
+getDatetime = eitherResult . parse datetime
 
 spaces :: Parser ()
 spaces = skipWhile $ inClass " \t"
@@ -28,8 +36,17 @@ fields (n:ns) = do
   rest <- fields newns
   return (ret:rest)
 
+fieldsWithTime :: [Int] -> Parser (SB.ByteString, [SB.ByteString])
+fieldsWithTime l = do
+  time <- datetime
+  rest <- fields $ map (flip (-) 2) l
+  return (time, rest)
+
 getFields :: [Int] -> B.ByteString -> Either String [SB.ByteString]
 getFields numbers = eitherResult . parse (fields $ sort numbers)
+
+getFieldsWithTime :: [Int] -> B.ByteString -> Either String (SB.ByteString, [SB.ByteString])
+getFieldsWithTime numbers = eitherResult . parse (fieldsWithTime $ sort numbers)
 
 categoryAndEvent :: Parser (SB.ByteString, SB.ByteString)
 categoryAndEvent = do
