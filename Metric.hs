@@ -2,10 +2,9 @@ module Metric (
   Metric,
   getResults,
   getResultsBufferedBySecond,
-  parseConfig
+  makeMetric
   ) where
 
-import Text.JSON
 import Parsers
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
@@ -16,6 +15,7 @@ import Data.Maybe
 import Data.Time.Format
 import Data.Time.Clock.POSIX
 import System.Locale
+import qualified ConfigBase as Conf
 
 type Metric = [B.ByteString] -> MetricState
 type Timestamp = String
@@ -65,12 +65,6 @@ countEvents category eventId nameString input = CounterMetricState nameString (f
       Right a -> a
       Left _ -> (SB.pack "", SB.pack "") -- TODO
 
-makeEventCounter :: String -> JSObject JSValue -> Result Metric
-makeEventCounter nameString obj = let (!) = flip valFromObj in do
-  category <- obj ! "category"
-  event <- obj ! "event"
-  return $ countEvents (SB.pack category) (SB.pack event) nameString
-
 countFields :: [(Int, SB.ByteString)] -> String -> [B.ByteString] -> MetricState
 countFields spec nameString input = CounterMetricState nameString (fromIntegral $ length $ matchingFields input)
   where
@@ -82,26 +76,11 @@ countFields spec nameString input = CounterMetricState nameString (fromIntegral 
       Right a -> a
       Left _ -> []
 
-makeFieldCounter :: String -> JSObject JSValue -> Result Metric
-makeFieldCounter nameString obj = let (!) = flip valFromObj in do
-  fieldsSpec <- obj ! "fields"
-  return $ countFields fieldsSpec nameString
-  
-makeMetric :: JSObject JSValue -> Result Metric
-makeMetric obj = let (!) = flip valFromObj in do
-  typeString <- obj ! "type"
-  nameString <- obj ! "name"
-  let factory = case typeString of
-        "eventCounter" -> makeEventCounter
-        "fieldCounter" -> makeFieldCounter
-        _ -> \_ _ -> Error "unknown metric type"
-    in factory nameString obj
-
-parseConfig :: String -> Either String [Metric]
-parseConfig = toEither . (decode >=> mapM makeMetric)
-  where
-    toEither (Ok a)    = Right a
-    toEither (Error a) = Left $ "Failed to parse config: " ++ a
+makeMetric :: Conf.Config -> Metric
+makeMetric Conf.EventCounter {Conf.name = name', Conf.event = event, Conf.category = category} =
+  countEvents (SB.pack category) (SB.pack event) (name')
+makeMetric Conf.FieldCounter {Conf.name = name', Conf.fields = fields} =
+  countFields (map (\x -> (Conf.index x, SB.pack $ Conf.match x)) fields) (name')
 
 getResults :: Metric -> [B.ByteString] -> Results
 getResults metric input = toResultsNow $ metric input

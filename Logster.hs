@@ -1,3 +1,4 @@
+import Config
 import Carbon
 import Metric
 import System.Environment
@@ -50,20 +51,14 @@ outputFlagToAction _                    = error $ "Something has gone horribly w
 main :: IO ()
 main = do
   args <- getArgs
-  (opts, params) <- parseOptions args
+  (opts, _) <- parseOptions args
   if Help `elem` opts then putStrLn (usageInfo header options) >> exitSuccess else return ()
-  if null params then ioError (userError "Please specify a config file as the single argument") else return ()
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
   if length outputActions == 0 then ioError (userError "Please specify at least one output destination (-g or -d)") else return ()
-  
-  config <- readFile $ head args
-  case parseConfig config of
-    Left message -> error message
-    Right metrics -> run metrics outputActions
-  where
-    run metrics outputActions = do
-      input <- B.getContents
-      let inputLines = B.split '\n' input
-          resultsToHandle handle = concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (flip getResults inputLines) metrics)
+  let metrics = map makeMetric config
+
+  input <- B.getContents
+  let inputLines = B.split '\n' input
+      resultsToHandle handle = concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (flip getResults inputLines) metrics)
       
-      mapM_ ($ resultsToHandle) outputActions
+  mapM_ ($ resultsToHandle) outputActions
