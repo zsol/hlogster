@@ -59,11 +59,6 @@ while getopts ":b:p:t:" opt; do
     esac
 done
 
-if [ ! -f $hlogster ]; then
-    echo ERROR: hlogster binary not found at $hlogster
-    exit 1
-fi
-
 if [[ $tests == '' ]]; then
     echo No tests to run
     exit 1
@@ -73,9 +68,24 @@ fi
 
 ret=0
 
+if [ ! -h ../Config.hs ]; then
+    echo Config.hs is not a symlink
+    exit 6
+fi
+
+original_config=$(readlink ../Config.hs)
+
+trap "rm ../Config.hs && ln -sf $original_config ../Config.hs" 0 15
+
 for t in $tests
 do
     echo Case \"$t\"
+    
+    ln -sf $(pwd)/$t/Config.hs ../Config.hs
+    cd ..
+    cabal configure && cabal build
+    cd -
+
     if [ ! -f $t/input.txt ]; then
         echo "  ERROR: Input file $t/input.txt not found"
         error=$(expr $error + 1)
@@ -93,7 +103,7 @@ do
     stderr=$(mktemp hlogster.XXXXX)
     nc -l 2003 | awk '{print $1 " " $2}' > $tcp 2>&1 &
     nc_pid=$!
-    $hlogster $t/metrics.json >$stdout 2>$stderr < $t/input.txt
+    $hlogster -g localhost:2003 >$stdout 2>$stderr < $t/input.txt
 
     if [ -f $t/retval.txt ]; then
         expected_retval=$(cat $t/retval.txt)
