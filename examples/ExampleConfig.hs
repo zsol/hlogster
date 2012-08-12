@@ -1,6 +1,8 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Config (config) where
 
 import ConfigBase
+
 
 config :: [Config]
 config =
@@ -9,4 +11,5 @@ config =
   , FieldCounter {name = "something.different",
                   fields = [Field {index = 4, match = "storage"},
                             Field {index = 7, match = "and_now_for_something_completely_different"}]}
+  , RegexCounter {name = "regexExample", regex = $(compileRegex "^.$")}
   ]

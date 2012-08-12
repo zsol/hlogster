@@ -12,10 +12,14 @@ import qualified Data.CircularList as C
 import Control.Monad.State.Lazy
 import Data.CircularList
 import Data.Maybe
+import Data.Either
 import Data.Time.Format
 import Data.Time.Clock.POSIX
 import System.Locale
 import qualified ConfigBase as Conf
+import Text.Regex.TDFA.ByteString.Lazy
+import Text.Regex.Base.RegexLike
+import RegexCompiler
 
 type Metric = [B.ByteString] -> MetricState
 type Timestamp = String
@@ -76,11 +80,19 @@ countFields spec nameString input = CounterMetricState nameString (fromIntegral 
       Right a -> a
       Left _ -> []
 
+countRegexen :: Regex -> String -> [B.ByteString] -> MetricState
+countRegexen regex nameString input = CounterMetricState nameString (fromIntegral $ length $ matches input)
+  where
+    matches = catMaybes . rights . map (execute regex)
+      
+
 makeMetric :: Conf.Config -> Metric
 makeMetric Conf.EventCounter {Conf.name = name', Conf.event = event, Conf.category = category} =
   countEvents (SB.pack category) (SB.pack event) (name')
 makeMetric Conf.FieldCounter {Conf.name = name', Conf.fields = fields} =
   countFields (map (\x -> (Conf.index x, SB.pack $ Conf.match x)) fields) (name')
+makeMetric Conf.RegexCounter {Conf.name = name', Conf.regex = regex} =
+  countRegexen regex name'
 
 getResults :: Metric -> [B.ByteString] -> Results
 getResults metric input = toResultsNow $ metric input
