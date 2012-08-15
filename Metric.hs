@@ -18,8 +18,6 @@ import Data.Time.Clock.POSIX
 import System.Locale
 import qualified ConfigBase as Conf
 import Text.Regex.TDFA.ByteString.Lazy
-import Text.Regex.Base.RegexLike
-import RegexCompiler
 
 type Metric = [B.ByteString] -> MetricState
 type Timestamp = String
