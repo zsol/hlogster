@@ -1,7 +1,10 @@
 module Metric (
   Metric,
+  IMetricState(combine, toResults),
+  MetricState,
+  Results,
+  Timestamp,
   getResults,
-  getResultsBufferedBySecond,
   makeMetric
   ) where
 
@@ -19,7 +22,7 @@ import System.Locale
 import qualified ConfigBase as Conf
 import Text.Regex.TDFA.ByteString.Lazy
 
-type Metric = [B.ByteString] -> MetricState
+type (Metric state) = [B.ByteString] -> state
 type Timestamp = String
 type Results = [(String, String, Timestamp)]
 
@@ -84,7 +87,7 @@ countRegexen regex nameString input = CounterMetricState nameString (fromIntegra
     matches = catMaybes . rights . map (execute regex)
       
 
-makeMetric :: Conf.Config -> Metric
+makeMetric :: Conf.Config -> Metric MetricState
 makeMetric Conf.EventCounter {Conf.name = name', Conf.event = event, Conf.category = category} =
   countEvents (SB.pack category) (SB.pack event) (name')
 makeMetric Conf.FieldCounter {Conf.name = name', Conf.fields = fields} =
@@ -92,64 +95,5 @@ makeMetric Conf.FieldCounter {Conf.name = name', Conf.fields = fields} =
 makeMetric Conf.RegexCounter {Conf.name = name', Conf.regex = regex} =
   countRegexen regex name'
 
-getResults :: Metric -> [B.ByteString] -> Results
+getResults :: IMetricState state => Metric state -> [B.ByteString] -> Results
 getResults metric input = toResultsNow $ metric input
-
-type Time = SB.ByteString
-type RingBuffer = CList (Time, MetricState)
-
-getResultsBufferedBySecond :: Int -> ([B.ByteString] -> MetricState) -> [B.ByteString] -> [Results]
-getResultsBufferedBySecond maxSize metric input = evalState (process input) C.empty
-  where
-    getTime :: B.ByteString -> Either String Time
-    getTime line = getDatetime line
-
-    toTimestamp :: Time -> Timestamp
-    toTimestamp = init . show . utcTimeToPOSIXSeconds . fromJust . (parseTime defaultTimeLocale "%F %T") . SB.unpack 
-
-    isNewer :: RingBuffer -> Time -> Bool
-    isNewer buf time
-      | C.isEmpty buf = True
-      | fst (fromJust (C.focus buf)) < time = True
-      | otherwise = False
-
-    -- focus on buf is always on the newest element
-    insertIntoBuf :: MetricState -> RingBuffer -> Time -> RingBuffer
-    insertIntoBuf metricState buf time
-      | isNewer buf time = C.insertL (time, metricState) buf
-      | fst (fromJust (C.focus buf)) == time = C.update (time, combine (snd $ fromJust $ C.focus buf) metricState) buf
-      | otherwise = C.rotL $ rotateToOldest $ insertIntoBuf metricState (C.rotL buf) time
-
-    downSizeBuf :: RingBuffer -> (RingBuffer, Maybe (Time, MetricState))
-    downSizeBuf buf
-      | C.size buf <= maxSize = (buf, Nothing)
-      | otherwise             = (C.removeL bufAtOldest, C.focus bufAtOldest)
-      where
-        bufAtOldest = rotateToOldest buf
-
-    rotateToOldest :: RingBuffer -> RingBuffer
-    rotateToOldest buf = rotN (findOldest 0 (rightElements buf)) buf
-      where
-        findOldest n (x1:x2:xs)
-          | fst x1 > fst x2 = n+1
-          | otherwise       = findOldest (n+1) (x2:xs)
-        findOldest n _ = n
-
-    process :: [B.ByteString] -> State RingBuffer [Results]
-    process [] = do
-      buf <- get
-      return $ map (uncurry toResults . (\(x,y) -> (toTimestamp x, y))) (C.toList buf)
-    process (i:is) = case getTime i of
-      Left _ -> process is
-      Right time -> do
-        buf <- get
-        let biggerBuf = insertIntoBuf (metric [i]) buf time
-        let (newBuf, readyElem) = downSizeBuf biggerBuf
-        put newBuf
-        rest <- process is
-        return $ case readyElem of
-          Just (time', metricState) -> toResults (toTimestamp time') metricState
-          Nothing   -> []
-          : rest
-      
-  
