@@ -9,6 +9,7 @@ import System.Exit
 import Network.Fancy
 import System.IO
 import Data.List
+import Buffer (getResultsBufferedBySecond)
 
 type Line = String
 
@@ -59,6 +60,6 @@ main = do
 
   input <- B.getContents
   let inputLines = B.split '\n' input
-      resultsToHandle handle = concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (flip getResults inputLines) metrics)
+      resultsToHandle handle = concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (concat . getResultsBufferedBySecond 10 inputLines) metrics)
       
   mapM_ ($ resultsToHandle) outputActions

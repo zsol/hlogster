@@ -25,8 +25,8 @@ size = C.size
 isEmpty :: RingBuffer a -> Bool
 isEmpty = C.isEmpty
 
-getResultsBufferedBySecond :: IMetricState a => Int -> Metric a -> [B.ByteString] -> [Results]
-getResultsBufferedBySecond maxSize metric input = evalState (process maxSize metric input) empty
+getResultsBufferedBySecond :: IMetricState a => Int -> [B.ByteString] -> Metric a -> [Results]
+getResultsBufferedBySecond maxSize input metric = evalState (process maxSize metric input) empty
 
 getTime :: B.ByteString -> Either String Time
 getTime line = getDatetime line
