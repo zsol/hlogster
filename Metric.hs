@@ -11,14 +11,8 @@ module Metric (
 import Parsers
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
-import qualified Data.CircularList as C
-import Control.Monad.State.Lazy
-import Data.CircularList
 import Data.Maybe
 import Data.Either
-import Data.Time.Format
-import Data.Time.Clock.POSIX
-import System.Locale
 import qualified ConfigBase as Conf
 import Text.Regex.TDFA.ByteString.Lazy
 

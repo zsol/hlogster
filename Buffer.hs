@@ -5,9 +5,7 @@ import Metric
 import Parsers
 import Control.Monad.State.Lazy
 import Data.Maybe (fromJust)
-import Prelude hiding (null)
 import qualified Data.CircularList as C
-import Data.CircularList
 import Data.Time.Format
 import Data.Time.Clock.POSIX
 import System.Locale
@@ -16,10 +14,19 @@ import qualified Data.ByteString.Char8 as SB
 
 
 type Time = SB.ByteString
-type (RingBuffer a) = CList (Time, a)
+type (RingBuffer a) = C.CList (Time, a)
+
+empty :: RingBuffer a
+empty = C.empty
+
+size :: RingBuffer a -> Int
+size = C.size
+
+isEmpty :: RingBuffer a -> Bool
+isEmpty = C.isEmpty
 
 getResultsBufferedBySecond :: IMetricState a => Int -> ([B.ByteString] -> a) -> [B.ByteString] -> [Results]
-getResultsBufferedBySecond maxSize metric input = evalState (process maxSize metric input) C.empty
+getResultsBufferedBySecond maxSize metric input = evalState (process maxSize metric input) empty
 
 getTime :: B.ByteString -> Either String Time
 getTime line = getDatetime line
@@ -29,7 +36,7 @@ toTimestamp = init . show . utcTimeToPOSIXSeconds . fromJust . (parseTime defaul
 
 isNewer :: RingBuffer a -> Time -> Bool
 isNewer buf time
-  | C.isEmpty buf = True
+  | isEmpty buf = True
   | fst (fromJust (C.focus buf)) < time = True
   | otherwise = False
 
@@ -42,13 +49,13 @@ insertIntoBuf metricState buf time
 
 downSizeBuf :: RingBuffer a -> Int -> (RingBuffer a, Maybe (Time, a))
 downSizeBuf buf maxSize
-  | C.size buf <= maxSize = (buf, Nothing)
+  | size buf <= maxSize = (buf, Nothing)
   | otherwise             = (C.removeL bufAtOldest, C.focus bufAtOldest)
   where
     bufAtOldest = rotateToOldest buf
 
 rotateToOldest :: RingBuffer a -> RingBuffer a
-rotateToOldest buf = rotN (findOldest 0 (rightElements buf)) buf
+rotateToOldest buf = C.rotN (findOldest 0 (C.rightElements buf)) buf
   where
     findOldest n (x1:x2:xs)
       | fst x1 > fst x2 = n+1
