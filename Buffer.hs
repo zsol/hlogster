@@ -40,12 +40,19 @@ isNewer buf time
   | fst (fromJust (C.focus buf)) < time = True
   | otherwise = False
 
+isOlder :: RingBuffer a -> Time -> Bool
+isOlder buf time
+  | isEmpty buf = True
+  | fst (fromJust (C.focus (C.rotR buf))) > time = True
+  | otherwise = False
+
 -- focus on buf is always on the newest element
 insertIntoBuf :: IMetricState a => a -> RingBuffer a -> Time -> RingBuffer a
 insertIntoBuf metricState buf time
   | isNewer buf time = C.insertL (time, metricState) buf
   | fst (fromJust (C.focus buf)) == time = C.update (time, combine (snd $ fromJust $ C.focus buf) metricState) buf
-  | otherwise = C.rotL $ rotateToOldest $ insertIntoBuf metricState (C.rotL buf) time
+  | isOlder buf time = C.insertR (time, metricState) buf
+  | otherwise = rotateToNewest $ insertIntoBuf metricState (C.rotL buf) time
 
 downSizeBuf :: RingBuffer a -> Int -> (RingBuffer a, Maybe (Time, a))
 downSizeBuf buf maxSize
@@ -53,6 +60,9 @@ downSizeBuf buf maxSize
   | otherwise             = (C.removeL bufAtOldest, C.focus bufAtOldest)
   where
     bufAtOldest = rotateToOldest buf
+
+rotateToNewest :: RingBuffer a -> RingBuffer a
+rotateToNewest = C.rotL . rotateToOldest
 
 rotateToOldest :: RingBuffer a -> RingBuffer a
 rotateToOldest buf = C.rotN (findOldest 0 (C.rightElements buf)) buf
