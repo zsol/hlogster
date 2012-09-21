@@ -25,7 +25,7 @@ size = C.size
 isEmpty :: RingBuffer a -> Bool
 isEmpty = C.isEmpty
 
-getResultsBufferedBySecond :: IMetricState a => Int -> ([B.ByteString] -> a) -> [B.ByteString] -> [Results]
+getResultsBufferedBySecond :: IMetricState a => Int -> Metric a -> [B.ByteString] -> [Results]
 getResultsBufferedBySecond maxSize metric input = evalState (process maxSize metric input) empty
 
 getTime :: B.ByteString -> Either String Time
@@ -80,8 +80,7 @@ process maxSize metric (i:is) = case getTime i of
   Left _ -> process maxSize metric is
   Right time -> do
     buf <- get
-    let biggerBuf = insertIntoBuf (metric [i]) buf time
-    let (newBuf, readyElem) = downSizeBuf biggerBuf maxSize
+    let (newBuf, readyElem) = processLine maxSize metric i time buf
     put newBuf
     rest <- process maxSize metric is
     return $ case readyElem of
@@ -89,5 +88,10 @@ process maxSize metric (i:is) = case getTime i of
       Nothing   -> []
       : rest
       
-  
-
+processLine :: IMetricState a => Int -> Metric a -> B.ByteString -> Time -> RingBuffer a -> (RingBuffer a, Maybe (Time, a))
+processLine maxSize metric line time buf
+  | size buf < maxSize = (expandedBuf, Nothing)
+  | time `isOlder` buf = (buf, Nothing) -- drop very old messages if buffer is at size
+  | otherwise          = downSizeBuf expandedBuf maxSize
+  where
+    expandedBuf = insertIntoBuf (metric [line]) buf time
