@@ -34,14 +34,14 @@ getTime line = getDatetime line
 toTimestamp :: Time -> Timestamp
 toTimestamp = init . show . utcTimeToPOSIXSeconds . fromJust . (parseTime defaultTimeLocale "%F %T") . SB.unpack 
 
-isNewer :: RingBuffer a -> Time -> Bool
-isNewer buf time
+isNewer :: Time -> RingBuffer a -> Bool
+isNewer time buf
   | isEmpty buf = True
   | fst (fromJust (C.focus buf)) < time = True
   | otherwise = False
 
-isOlder :: RingBuffer a -> Time -> Bool
-isOlder buf time
+isOlder :: Time -> RingBuffer a -> Bool
+isOlder time buf
   | isEmpty buf = True
   | fst (fromJust (C.focus (C.rotR buf))) > time = True
   | otherwise = False
@@ -49,9 +49,9 @@ isOlder buf time
 -- focus on buf is always on the newest element
 insertIntoBuf :: IMetricState a => a -> RingBuffer a -> Time -> RingBuffer a
 insertIntoBuf metricState buf time
-  | isNewer buf time = C.insertL (time, metricState) buf
+  | time `isNewer` buf = C.insertL (time, metricState) buf
   | fst (fromJust (C.focus buf)) == time = C.update (time, combine (snd $ fromJust $ C.focus buf) metricState) buf
-  | isOlder buf time = C.insertR (time, metricState) buf
+  | time `isOlder` buf = C.insertR (time, metricState) buf
   | otherwise = rotateToNewest $ insertIntoBuf metricState (C.rotL buf) time
 
 downSizeBuf :: RingBuffer a -> Int -> (RingBuffer a, Maybe (Time, a))
