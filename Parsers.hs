@@ -10,9 +10,12 @@ import Data.List (sort)
 datetime :: Parser SB.ByteString
 datetime = do
   ret <- takeWhile1 $ notInClass ","
-  field_
+  if SB.length ret /= 19
+    then fail "Date is not exactly 19 characters long"
+    else field_
   return ret
   
+getDatetime :: B.ByteString -> Either String SB.ByteString
 getDatetime = eitherResult . parse datetime
 
 spaces :: Parser ()
