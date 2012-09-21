@@ -50,7 +50,9 @@ instance IMetricState MetricState
       }
     combine _ _ = undefined
 
-    toResults timestamp (CounterMetricState name' a) = [(name', show a, timestamp)]
+    toResults timestamp (CounterMetricState name' a)
+      | a == 0 = []
+      | otherwise = [(name', show a, timestamp)]
     toResults timestamp a = [ (name a ++ "." ++ x, show $ y a, timestamp) | (x, y) <- zip ["min", "max", "avg", "count"] [min', max', avg', num']]
 
 countEvents :: SB.ByteString -> SB.ByteString -> String -> [B.ByteString] -> MetricState
