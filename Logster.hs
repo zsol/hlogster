@@ -4,17 +4,16 @@ import Metric
 import System.Environment
 import qualified Data.ByteString.Lazy.Char8 as B
 import System.Console.GetOpt
-import Control.Parallel.Strategies
+import Control.Concurrent
+import Control.Exception (finally)
 import System.Exit
 import Network.Fancy
 import System.IO
+import System.IO.Unsafe (unsafePerformIO)
 import Data.List
 import Buffer (getResultsBufferedBySecond)
 
 type Line = String
-
-concatMapM_ :: Monad m => (a1 -> m a) -> [[a1]] -> m ()
-concatMapM_ f = mapM_ f . concat
 
 data Flag =
   Help |
@@ -48,7 +47,33 @@ outputFlagToAction (Graphite hostport)  = withStream $ IP host (read port)
   where
     (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
 outputFlagToAction _                    = error $ "Something has gone horribly wrong."
-    
+
+produceOutput :: IMetricState a => Metric a -> [B.ByteString] -> Handle -> IO ()
+produceOutput metric input handle = mapM_ (flip sendToCarbon handle) result
+  where
+    result = concat $ getResultsBufferedBySecond 10 input metric
+
+children :: MVar [a]
+children = unsafePerformIO $ newMVar []
+
+waitForChildren :: IO ()
+waitForChildren = do
+  cs <- takeMVar children
+  case cs of
+    []   -> return ()
+    m:ms -> do
+      putMVar children ms
+      takeMVar m
+      waitForChildren
+
+forkChild :: IO () -> IO ThreadId
+forkChild io = do
+  mvar <- newEmptyMVar
+  childs <- takeMVar children
+  putMVar children (mvar:childs)
+  forkIO (io `finally` putMVar mvar ())
+
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -59,7 +84,9 @@ main = do
   let metrics = map makeMetric config
 
   input <- B.getContents
-  let inputLines = B.split '\n' input
-      resultsToHandle handle = concatMapM_ (flip sendToCarbon handle) (parMap rdeepseq (concat . getResultsBufferedBySecond 10 inputLines) metrics)
-      
-  mapM_ ($ resultsToHandle) outputActions
+
+  let threads = map (\metric -> mapM_ ($ produceOutput metric (B.split '\n' input)) outputActions) metrics :: [IO ()]
+
+  mapM_ forkChild threads
+
+  waitForChildren
