@@ -12,7 +12,6 @@ import System.Locale
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
 
-
 type Time = SB.ByteString
 type (RingBuffer a) = C.CList (Time, a)
 
@@ -49,10 +48,19 @@ isOlder time buf
 -- focus on buf is always on the newest element
 insertIntoBuf :: IMetricState a => a -> RingBuffer a -> Time -> RingBuffer a
 insertIntoBuf metricState buf time
-  | time `isNewer` buf = C.insertL (time, metricState) buf
-  | fst (fromJust (C.focus buf)) == time = C.update (time, combine (snd $ fromJust $ C.focus buf) metricState) buf
-  | time `isOlder` buf = C.insertR (time, metricState) buf
-  | otherwise = rotateToNewest $ insertIntoBuf metricState (C.rotL buf) time
+  | time `isNewer` buf = insert buf
+  | fst (fromJust (C.focus buf)) == time = update buf
+  | time `isOlder` buf = C.rotL $ insert buf
+  | otherwise = rotateToNewest $ insertHelper (C.rotL buf)
+  where
+    insert b = C.insertL (time, metricState) b
+    update b = C.update (time, combine (snd $ fromJust $ C.focus b) metricState) b
+    insertHelper rotBuf -- `time` is not newer nor older than buffer
+      | rotFocusTime == time = update rotBuf
+      | rotFocusTime < time  = insert rotBuf
+      | otherwise            = insertHelper (C.rotL rotBuf)
+      where
+        rotFocusTime = fst (fromJust (C.focus rotBuf))
 
 downSizeBuf :: RingBuffer a -> Int -> (RingBuffer a, Maybe (Time, a))
 downSizeBuf buf maxSize
