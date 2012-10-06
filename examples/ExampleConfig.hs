@@ -14,7 +14,7 @@ config = map addPrefix $ concat [
 presentationBackup :: [Config]
 presentationBackup =
   [ FieldCounter {name = "presentation_backup.successful_backups", fields =
-                     [Field {index = 7, match = "success"},
-                      Field {index = 8, match = "presentation"}]}
+                     [Field {index = 6, match = "success"},
+                      Field {index = 7, match = "presentation"}]}
   , RegexCounter {name = "presentation_backup.exceptions", regex = $(compileRegex "^\\[[^ ]+\\] [^ ]+ [^ ]+ INFO [^ ]+ .*[Ee]xception.*")}
   ]
