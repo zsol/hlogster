@@ -52,12 +52,11 @@ def hlogster(rev=None):
                          'rm release.tar.bz2']))
 
     with cd(release_dir):
-        with path('/home/publisher/.cabal/bin', behavior='prepend'):
-            for cmd in ['pwd', 'cabal update',
-                        'cabal install --only-dependencies',
-                        'cabal configure',
-                        'cabal build']:
-                run(cmd)
+        for cmd in ['pwd', 'cabal update',
+                    'cabal install --only-dependencies',
+                    'cabal configure',
+                    'cabal build']:
+            run(cmd)
 
     with cd(APP_DIR):
         run('ln -snf %s current' % commithash)
