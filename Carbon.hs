@@ -14,8 +14,8 @@ localhost :: Address
 localhost = IP "localhost" 2003
 
 sendToCarbon :: (String, String, String) -> Handle -> IO ()
-sendToCarbon (key, value, "") handle = now >>= \time -> hPutStrLn handle (key ++ " " ++ value ++ " " ++ time)
-sendToCarbon (key, value, time) handle = hPutStrLn handle (key ++ " " ++ value ++ " " ++ time)
+sendToCarbon (key, value, "") handle = now >>= \time -> hPutStrLn handle (key ++ " " ++ value ++ " " ++ time ++ "\n")
+sendToCarbon (key, value, time) handle = hPutStrLn handle (key ++ " " ++ value ++ " " ++ time ++ "\n")
 
 sendTo :: Address -> (String, String, String) -> IO ()
 sendTo address' = withStream address' . sendToCarbon
