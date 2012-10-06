@@ -42,7 +42,7 @@ parseOptions argv = case getOpt Permute options argv of
   (_, _, es) -> ioError $ userError $ concat es ++ usageInfo header options
 
 outputFlagToAction :: Flag -> (Handle -> IO a) -> IO a
-outputFlagToAction Debug                = flip ($) stderr
+outputFlagToAction Debug                = flip ($) stdout
 outputFlagToAction (Graphite hostport)  = withStream $ IP host (read port)
   where
     (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
