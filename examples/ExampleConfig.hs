@@ -13,8 +13,8 @@ config = map addPrefix $ concat [
 
 presentationBackup :: [Config]
 presentationBackup =
-  [ FieldCounter {name = "presentation_backup.successful_backups", fields =
+  [ FieldCounter {name = "presentation_backup.successful_backups.count", fields =
                      [Field {index = 6, match = "success"},
                       Field {index = 7, match = "presentation"}]}
-  , RegexCounter {name = "presentation_backup.exceptions", regex = $(compileRegex "^\\[[^ ]+\\] [^ ]+ [^ ]+ INFO [^ ]+ .*[Ee]xception.*")}
+  , RegexCounter {name = "presentation_backup.exceptions.count", regex = $(compileRegex "^\\[[^ ]+\\] [^ ]+ [^ ]+ INFO [^ ]+ .*[Ee]xception.*")}
   ]
