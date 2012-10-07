@@ -7,7 +7,7 @@ import System.Console.GetOpt
 import Control.Concurrent
 import Control.Exception (finally)
 import System.Exit
-import Network.Fancy
+import Network
 import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 import Data.List
@@ -42,11 +42,15 @@ parseOptions argv = case getOpt Permute options argv of
   (_, _, es) -> ioError $ userError $ concat es ++ usageInfo header options
 
 outputFlagToAction :: Flag -> (Handle -> IO a) -> IO a
-outputFlagToAction Debug                = flip ($) stdout
-outputFlagToAction (Graphite hostport)  = withStream $ IP host (read port)
+outputFlagToAction Debug action               = action stdout
+outputFlagToAction (Graphite hostport) action = do
+  h <- connectTo host (PortNumber $ fromIntegral portNum)
+  hSetBuffering h LineBuffering
+  action h
   where
     (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
-outputFlagToAction _                    = error $ "Something has gone horribly wrong."
+    portNum = read port :: Int
+outputFlagToAction _ _                        = error $ "Something has gone horribly wrong."
 
 produceOutput :: IMetricState a => Metric a -> [B.ByteString] -> Handle -> IO ()
 produceOutput metric input handle = mapM_ (flip sendToCarbon handle) result
