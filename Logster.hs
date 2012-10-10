@@ -12,6 +12,7 @@ import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 import Data.List
 import Buffer (getResultsBufferedBySecond)
+import Data.Time.LocalTime (getCurrentTimeZone, TimeZone)
 
 type Line = String
 
@@ -48,10 +49,10 @@ outputFlagToAction (Graphite hostport)  = withStream $ IP host (read port)
     (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
 outputFlagToAction _                    = error $ "Something has gone horribly wrong."
 
-produceOutput :: IMetricState a => Metric a -> [B.ByteString] -> Handle -> IO ()
-produceOutput metric input handle = mapM_ (flip sendToCarbon handle) result
+produceOutput :: IMetricState a => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
+produceOutput tz metric input handle = mapM_ (flip sendToCarbon handle) result
   where
-    result = concat $ getResultsBufferedBySecond 10 input metric
+    result = concat $ getResultsBufferedBySecond tz 10 input metric
 
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []
@@ -83,9 +84,10 @@ main = do
   if length outputActions == 0 then ioError (userError "Please specify at least one output destination (-g or -d)") else return ()
   let metrics = map makeMetric config
 
+  tz <- getCurrentTimeZone
   input <- B.getContents
 
-  let threads = map (\metric -> mapM_ ($ produceOutput metric (B.split '\n' input)) outputActions) metrics :: [IO ()]
+  let threads = map (\metric -> mapM_ ($ produceOutput tz metric (B.split '\n' input)) outputActions) metrics :: [IO ()]
 
   mapM_ forkChild threads
 

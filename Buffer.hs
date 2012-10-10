@@ -7,7 +7,8 @@ import Control.Monad.State.Lazy
 import Data.Maybe (fromJust)
 import qualified Data.CircularList as C
 import Data.Time.Format
-import Data.Time.Clock.POSIX
+import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import Data.Time.LocalTime (localTimeToUTC, TimeZone)
 import System.Locale
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
@@ -24,14 +25,14 @@ size = C.size
 isEmpty :: RingBuffer a -> Bool
 isEmpty = C.isEmpty
 
-getResultsBufferedBySecond :: IMetricState a => Int -> [B.ByteString] -> Metric a -> [Results]
-getResultsBufferedBySecond maxSize input metric = evalState (process maxSize metric input) empty
+getResultsBufferedBySecond :: IMetricState a => TimeZone -> Int -> [B.ByteString] -> Metric a -> [Results]
+getResultsBufferedBySecond tz maxSize input metric = evalState (process tz maxSize metric input) empty
 
 getTime :: B.ByteString -> Either String Time
 getTime line = getDatetime line
 
-toTimestamp :: Time -> Timestamp
-toTimestamp = init . show . utcTimeToPOSIXSeconds . fromJust . (parseTime defaultTimeLocale "%F %T") . SB.unpack 
+toTimestamp :: TimeZone -> Time -> Timestamp
+toTimestamp tz = init . show . utcTimeToPOSIXSeconds . (localTimeToUTC tz) . fromJust . (parseTime defaultTimeLocale "%F %T") . SB.unpack 
 
 isNewer :: Time -> RingBuffer a -> Bool
 isNewer time buf
@@ -80,19 +81,19 @@ rotateToOldest buf = C.rotN (findOldest 0 (C.rightElements buf)) buf
       | otherwise       = findOldest (n+1) (x2:xs)
     findOldest n _ = n
 
-process :: IMetricState a => Int -> Metric a -> [B.ByteString] -> State (RingBuffer a) [Results]
-process _ _ [] = do
+process :: IMetricState a => TimeZone -> Int -> Metric a -> [B.ByteString] -> State (RingBuffer a) [Results]
+process tz _ _ [] = do
   buf <- get
-  return $ map (uncurry toResults . (\(x,y) -> (toTimestamp x, y))) (C.toList buf)
-process maxSize metric (i:is) = case getTime i of
-  Left _ -> process maxSize metric is
+  return $ map (uncurry toResults . (\(x,y) -> (toTimestamp tz x, y))) (C.toList buf)
+process tz maxSize metric (i:is) = case getTime i of
+  Left _ -> process tz maxSize metric is
   Right time -> do
     buf <- get
     let (newBuf, readyElem) = processLine maxSize metric i time buf
     put newBuf
-    rest <- process maxSize metric is
+    rest <- process tz maxSize metric is
     return $ case readyElem of
-      Just (time', metricState) -> toResults (toTimestamp time') metricState
+      Just (time', metricState) -> toResults (toTimestamp tz time') metricState
       Nothing   -> []
       : rest
       
