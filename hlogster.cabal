@@ -57,7 +57,7 @@ Executable hlogster
     Main-is: Logster.hs
   
   -- Packages needed in order to build this package.
-    Build-depends: base, network, split, time, attoparsec, bytestring, parallel, old-locale, data-clist, mtl, template-haskell, regex-tdfa, regex-base
+    Build-depends: base, network, split, time, attoparsec, bytestring, parallel, old-locale, data-clist, mtl, template-haskell, regex-tdfa, regex-base, array, containers
     GHC-Options: -O2 -threaded -feager-blackholing -with-rtsopts=-N
   -- Modules not exported by this package.
     Other-modules: Metric, Parsers, Carbon

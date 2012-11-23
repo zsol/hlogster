@@ -8,7 +8,8 @@ compileRegex = RegexCompiler.compileRegex
 data Config =
   EventCounter {name :: String, category :: String, event :: String} |
   FieldCounter {name :: String, fields :: [FieldSpec]} |
-  RegexCounter {name :: String, regex :: Regex}
+  RegexCounter {name :: String, regex :: Regex} |
+  RegexTiming {name :: String, regex :: Regex, durationGroup :: Int, nameSuffixes :: [Int]}
 
 data FieldSpec = Field { index :: Int, match :: String }
 
