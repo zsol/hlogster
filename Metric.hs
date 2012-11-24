@@ -19,6 +19,7 @@ import Data.Array as A
 import qualified ConfigBase as Conf
 import Text.Regex.TDFA.ByteString.Lazy
 import Text.Regex.Base.RegexLike (matchAllText, MatchText)
+import Control.Parallel.Strategies (parMap, rdeepseq, withStrategy, parList)
 
 type (Metric state) = [B.ByteString] -> state
 type Timestamp = String
@@ -98,8 +99,8 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
       | otherwise     = (nameString ++ "." ++ B.unpack suffix, metricStates)
     matches :: [MatchText B.ByteString]
     matches = concat $ map (matchAllText regex) input
-    durations = map (read . B.unpack . fst . (A.! durationGroup)) matches :: [Float] -- TODO: read into Float
-    names = map (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
+    durations = parMap rdeepseq (read . B.unpack . fst . (A.! durationGroup)) matches :: [Float]
+    names = parMap rdeepseq (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
     durationsByName :: [[(B.ByteString, Float)]]
     durationsByName = case durations of
       [] -> []
