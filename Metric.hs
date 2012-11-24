@@ -101,9 +101,11 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
     durations = map (read . B.unpack . fst . (A.! durationGroup)) matches :: [Float] -- TODO: read into Float
     names = map (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
     durationsByName :: [[(B.ByteString, Float)]]
-    durationsByName = case names of
-      [] -> [zip (repeat B.empty) durations]
-      _  -> groupBy (\x y -> fst x == fst y) (zip names durations)
+    durationsByName = case durations of
+      [] -> []
+      _  -> case names of
+        [] -> [zip (repeat B.empty) durations]
+        _  -> groupBy (\x y -> fst x == fst y) (zip names durations)
     states :: [(B.ByteString, TimingMetricState)]
     states = map pair durationsByName
     pair [] = error "Internal error in timingRegex: pair applied to empty list"
