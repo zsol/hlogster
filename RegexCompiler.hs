@@ -4,10 +4,11 @@ module RegexCompiler (compileRegex, re)
 where
 
 import Data.ByteString.Lazy.Char8
-import Text.Regex.TDFA.ByteString.Lazy
+import Text.Regex.PCRE.ByteString.Lazy
 import Text.Regex.Base.RegexLike
 import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Quote
+import System.IO.Unsafe (unsafePerformIO)
 
 fromRight :: Either t t1 -> t1
 fromRight (Right a) = a
@@ -18,6 +19,6 @@ re = QuasiQuoter { quoteExp = compileRegex, quotePat = undefined, quoteType = un
 
 compileRegex :: String -> Q Exp
 compileRegex regex = 
-  case compile defaultCompOpt defaultExecOpt (pack regex) of
-    Left a -> fail a
-    Right _ -> [| fromRight $ compile defaultCompOpt defaultExecOpt (pack regex) |]
+  case unsafePerformIO (compile defaultCompOpt defaultExecOpt (pack regex)) of
+    Left a -> fail $ snd a
+    Right _ -> [| fromRight $ unsafePerformIO (compile defaultCompOpt defaultExecOpt (pack regex)) |]

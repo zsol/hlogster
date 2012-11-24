@@ -14,8 +14,9 @@ import Data.Either
 import Data.List
 import Data.Maybe
 import Parsers
-import Text.Regex.Base.RegexLike (matchAllText, MatchText)
-import Text.Regex.TDFA.ByteString.Lazy
+import Text.Regex.Base.RegexLike (matchAllText, matchCount, MatchText)
+import Text.Regex.PCRE.ByteString.Lazy
+import Text.Regex.PCRE.Wrap
 import qualified ConfigBase as Conf
 import qualified Data.ByteString.Char8 as SB
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -87,9 +88,7 @@ countFields spec nameString input = CounterMetricState nameString (fromIntegral 
       Left _ -> []
 
 countRegexen :: Regex -> String -> [B.ByteString] -> MetricState
-countRegexen regex nameString input = CounterMetricState nameString (fromIntegral $ length $ matches input)
-  where
-    matches = catMaybes . rights . map (execute regex)
+countRegexen regex nameString input = CounterMetricState nameString (fromIntegral $ sum $ map (matchCount regex) input)
 
 timingRegex :: Regex -> String -> Int -> [Int] -> [B.ByteString] -> MetricState
 timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.fromList $ map buildName states

@@ -1,6 +1,6 @@
 module ConfigBase where
 
-import Text.Regex.TDFA.ByteString.Lazy (Regex)
+import Text.Regex.PCRE.ByteString (Regex)
 import RegexCompiler (compileRegex)
 
 compileRegex = RegexCompiler.compileRegex
