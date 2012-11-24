@@ -8,18 +8,18 @@ module Metric (
   makeMetric
   ) where
 
-import Parsers
-import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.ByteString.Char8 as SB
-import qualified Data.Map as M
-import Data.Maybe
+import Control.Parallel.Strategies (parMap, rdeepseq)
+import Data.Array as A
 import Data.Either
 import Data.List
-import Data.Array as A
-import qualified ConfigBase as Conf
-import Text.Regex.TDFA.ByteString.Lazy
+import Data.Maybe
+import Parsers
 import Text.Regex.Base.RegexLike (matchAllText, MatchText)
-import Control.Parallel.Strategies (parMap, rdeepseq, withStrategy, parList)
+import Text.Regex.TDFA.ByteString.Lazy
+import qualified ConfigBase as Conf
+import qualified Data.ByteString.Char8 as SB
+import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.Map as M
 
 type (Metric state) = [B.ByteString] -> state
 type Timestamp = String

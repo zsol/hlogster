@@ -2,9 +2,9 @@ module Carbon
        (sendToCarbon)
        where
 
-import System.IO (hPutStrLn, Handle)
-import Data.Time.Clock.POSIX
 import Control.Monad (liftM)
+import Data.Time.Clock.POSIX
+import System.IO (hPutStrLn, Handle)
 
 sendToCarbon :: (String, String, String) -> Handle -> IO ()
 sendToCarbon (key, value, "") handle = now >>= \time -> hPutStrLn handle (key ++ " " ++ value ++ " " ++ time)

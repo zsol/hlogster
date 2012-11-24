@@ -1,17 +1,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Buffer where
 
-import Metric
-import Parsers
 import Control.Monad.State.Lazy
 import Data.Maybe (fromJust)
-import qualified Data.CircularList as C
-import Data.Time.Format
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import Data.Time.Format
 import Data.Time.LocalTime (localTimeToUTC, TimeZone)
+import Metric
+import Parsers
 import System.Locale
-import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
+import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.CircularList as C
 
 type Time = SB.ByteString
 type (RingBuffer a) = C.CList (Time, a)
