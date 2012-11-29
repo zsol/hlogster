@@ -1,17 +1,18 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Buffer where
 
-import Control.Monad.State.Lazy
-import Data.Maybe (fromJust)
-import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
-import Data.Time.Format
-import Data.Time.LocalTime (localTimeToUTC, TimeZone)
-import Metric
-import Parsers
-import System.Locale
-import qualified Data.ByteString.Char8 as SB
+import           Control.Arrow              (first)
+import           Control.Monad.State.Lazy
+import qualified Data.ByteString.Char8      as SB
 import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.CircularList as C
+import qualified Data.CircularList          as C
+import           Data.Maybe                 (fromJust)
+import           Data.Time.Clock.POSIX      (utcTimeToPOSIXSeconds)
+import           Data.Time.Format
+import           Data.Time.LocalTime        (TimeZone, localTimeToUTC)
+import           Metric
+import           Parsers
+import           System.Locale
 
 type Time = SB.ByteString
 type (RingBuffer a) = C.CList (Time, a)
@@ -29,10 +30,10 @@ getResultsBufferedBySecond :: IMetricState a => TimeZone -> Int -> [B.ByteString
 getResultsBufferedBySecond tz maxSize input metric = evalState (process tz maxSize metric input) empty
 
 getTime :: B.ByteString -> Either String Time
-getTime line = getDatetime line
+getTime = getDatetime
 
 toTimestamp :: TimeZone -> Time -> Timestamp
-toTimestamp tz = init . show . utcTimeToPOSIXSeconds . (localTimeToUTC tz) . fromJust . (parseTime defaultTimeLocale "%F %T") . SB.unpack 
+toTimestamp tz = init . show . utcTimeToPOSIXSeconds . localTimeToUTC tz . fromJust . parseTime defaultTimeLocale "%F %T" . SB.unpack
 
 isNewer :: Time -> RingBuffer a -> Bool
 isNewer time buf
@@ -54,7 +55,7 @@ insertIntoBuf metricState buf time
   | time `isOlder` buf = C.rotL $ insert buf
   | otherwise = rotateToNewest $ insertHelper (C.rotL buf)
   where
-    insert b = C.insertL (time, metricState) b
+    insert = C.insertL (time, metricState)
     update b = C.update (time, combine (snd $ fromJust $ C.focus b) metricState) b
     insertHelper rotBuf -- `time` is not newer nor older than buffer
       | rotFocusTime == time = update rotBuf
@@ -84,7 +85,7 @@ rotateToOldest buf = C.rotN (findOldest 0 (C.rightElements buf)) buf
 process :: IMetricState a => TimeZone -> Int -> Metric a -> [B.ByteString] -> State (RingBuffer a) [Results]
 process tz _ _ [] = do
   buf <- get
-  return $ map (uncurry toResults . (\(x,y) -> (toTimestamp tz x, y))) (C.toList buf)
+  return $ map (uncurry toResults . first (toTimestamp tz)) (C.toList buf)
 process tz maxSize metric (i:is) = case getTime i of
   Left _ -> process tz maxSize metric is
   Right time -> do
@@ -96,7 +97,7 @@ process tz maxSize metric (i:is) = case getTime i of
       Just (time', metricState) -> toResults (toTimestamp tz time') metricState
       Nothing   -> []
       : rest
-      
+
 processLine :: IMetricState a => Int -> Metric a -> B.ByteString -> Time -> RingBuffer a -> (RingBuffer a, Maybe (Time, a))
 processLine maxSize metric line time buf
   | size buf < maxSize = (expandedBuf, Nothing)

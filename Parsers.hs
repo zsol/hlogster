@@ -1,11 +1,12 @@
-{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 module Parsers
        (getCategoryAndEvent, getFields, getFieldsWithTime, getDatetime)
        where
-import Data.Attoparsec.Lazy
+import           Data.Attoparsec.Lazy
+import qualified Data.ByteString.Char8      as SB
 import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.ByteString.Char8 as SB
-import Data.List (sort)
+import           Data.List                  (sort)
 
 datetime :: Parser SB.ByteString
 datetime = do
@@ -14,7 +15,7 @@ datetime = do
     then fail "Date is not exactly 19 characters long"
     else field_
   return ret
-  
+
 getDatetime :: B.ByteString -> Either String SB.ByteString
 getDatetime = eitherResult . parse datetime
 
@@ -22,7 +23,7 @@ spaces :: Parser ()
 spaces = skipWhile $ inClass " \t"
 
 field_ :: Parser ()
-field_ = (skipWhile $ notInClass " \t") >> spaces
+field_ = skipWhile (notInClass " \t") >> spaces
 
 field :: Parser SB.ByteString
 field = do

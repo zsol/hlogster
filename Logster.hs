@@ -1,18 +1,19 @@
-import Config
-import Carbon
-import Metric
-import System.Environment
+import           Buffer                     (getResultsBufferedBySecond)
+import           Carbon
+import           Config
+import           Control.Concurrent
+import           Control.Exception          (finally)
+import           Control.Monad              (when)
 import qualified Data.ByteString.Lazy.Char8 as B
-import System.Console.GetOpt
-import Control.Concurrent
-import Control.Exception (finally)
-import System.Exit
-import Network
-import System.IO
-import System.IO.Unsafe (unsafePerformIO)
-import Data.List
-import Buffer (getResultsBufferedBySecond)
-import Data.Time.LocalTime (getCurrentTimeZone, TimeZone)
+import           Data.List
+import           Data.Time.LocalTime        (TimeZone, getCurrentTimeZone)
+import           Metric
+import           Network
+import           System.Console.GetOpt
+import           System.Environment
+import           System.Exit
+import           System.IO
+import           System.IO.Unsafe           (unsafePerformIO)
 
 type Line = String
 
@@ -51,10 +52,10 @@ outputFlagToAction (Graphite hostport) action = do
   where
     (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
     portNum = read port :: Int
-outputFlagToAction _ _                        = error $ "Something has gone horribly wrong."
+outputFlagToAction _ _                        = error "Something has gone horribly wrong."
 
 produceOutput :: IMetricState a => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
-produceOutput tz metric input handle = mapM_ (flip sendToCarbon handle) result
+produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
     result = concat $ getResultsBufferedBySecond tz 10 input metric
 
@@ -83,9 +84,9 @@ main :: IO ()
 main = do
   args <- getArgs
   (opts, _) <- parseOptions args
-  if Help `elem` opts then putStrLn (usageInfo header options) >> exitSuccess else return ()
+  when (Help `elem` opts) $ putStrLn (usageInfo header options) >> exitSuccess
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
-  if length outputActions == 0 then ioError (userError "Please specify at least one output destination (-g or -d)") else return ()
+  when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
 
   tz <- getCurrentTimeZone

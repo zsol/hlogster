@@ -8,19 +8,18 @@ module Metric (
   makeMetric
   ) where
 
-import Control.Parallel.Strategies (parMap, rdeepseq)
-import Data.Array as A
-import Data.Either
-import Data.List
-import Data.Maybe
-import Parsers
-import Text.Regex.Base.RegexLike (matchAllText, matchCount, MatchText)
-import Text.Regex.PCRE.ByteString.Lazy
-import Text.Regex.PCRE.Wrap
-import qualified ConfigBase as Conf
-import qualified Data.ByteString.Char8 as SB
-import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.Map as M
+import qualified ConfigBase                      as Conf
+import           Control.Parallel.Strategies     (parMap, rdeepseq)
+import           Data.Array                      as A
+import qualified Data.ByteString.Char8           as SB
+import qualified Data.ByteString.Lazy.Char8      as B
+import           Data.Function                   (on)
+import           Data.List
+import qualified Data.Map                        as M
+import           Parsers
+import           Text.Regex.Base.RegexLike       (MatchText, matchAllText,
+                                                  matchCount)
+import           Text.Regex.PCRE.ByteString.Lazy
 
 type (Metric state) = [B.ByteString] -> state
 type Timestamp = String
@@ -97,7 +96,7 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
       | B.null suffix = (nameString, metricStates)
       | otherwise     = (nameString ++ "." ++ B.unpack suffix, metricStates)
     matches :: [MatchText B.ByteString]
-    matches = concat $ map (matchAllText regex) input
+    matches = concatMap (matchAllText regex) input
     durations = parMap rdeepseq (read . B.unpack . fst . (A.! durationGroup)) matches :: [Float]
     names = parMap rdeepseq (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
     durationsByName :: [[(B.ByteString, Float)]]
@@ -105,7 +104,7 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
       [] -> []
       _  -> case names of
         [] -> [zip (repeat B.empty) durations]
-        _  -> groupBy (\x y -> fst x == fst y) (zip names durations)
+        _  -> groupBy ((==) `on` fst) (zip names durations)
     states :: [(B.ByteString, TimingMetricState)]
     states = map pair durationsByName
     pair [] = error "Internal error in timingRegex: pair applied to empty list"
@@ -122,9 +121,9 @@ select (x:xs) arr = arr A.! x : select xs arr
 
 makeMetric :: Conf.Config -> Metric MetricState
 makeMetric Conf.EventCounter {Conf.name = name', Conf.event = event, Conf.category = category} =
-  countEvents (SB.pack category) (SB.pack event) (name')
+  countEvents (SB.pack category) (SB.pack event) name'
 makeMetric Conf.FieldCounter {Conf.name = name', Conf.fields = fields} =
-  countFields (map (\x -> (Conf.index x, SB.pack $ Conf.match x)) fields) (name')
+  countFields (map (\x -> (Conf.index x, SB.pack $ Conf.match x)) fields) name'
 makeMetric Conf.RegexCounter {Conf.name = name', Conf.regex = regex} =
   countRegexen regex name'
 makeMetric Conf.RegexTiming {Conf.name = name', Conf.regex = regex, Conf.durationGroup = durationGroup, Conf.nameSuffixes = nameSuffixes} =
