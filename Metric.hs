@@ -21,6 +21,14 @@ import           Text.Regex.Base.RegexLike       (MatchText, matchAllText,
                                                   matchCount)
 import           Text.Regex.PCRE.ByteString.Lazy
 
+-- this is implemented properly in bytestring > 0.10
+import           Control.DeepSeq
+import           Data.ByteString.Lazy.Internal
+instance NFData ByteString where
+  rnf Empty       = ()
+  rnf (Chunk _ b) = rnf b
+
+
 type (Metric state) = [B.ByteString] -> state
 type Timestamp = String
 type Results = [(String, String, Timestamp)]
