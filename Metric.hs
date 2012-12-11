@@ -26,7 +26,7 @@ import           Text.Regex.Base.RegexLike       (MatchText, matchAllText,
                                                   matchCount)
 import           Text.Regex.PCRE.ByteString.Lazy
 
-#ifdef MIN_VERSION_bytestring(0,10,0,0)
+#if ! MIN_VERSION_bytestring(0,10,0)
 -- this is implemented properly in bytestring > 0.10
 import           Control.DeepSeq
 import           Data.ByteString.Lazy.Internal
@@ -136,7 +136,7 @@ select :: Ix i => [i] -> Array i a -> [a]
 select [] _ = []
 select (x:xs) arr = arr A.! x : select xs arr
 
-jsonMetrics :: String -> [(Int, SB.ByteString)] -> Int -> [String] -> [ByteString] -> MetricState
+jsonMetrics :: String -> [(Int, SB.ByteString)] -> Int -> [String] -> [B.ByteString] -> MetricState
 jsonMetrics nameString fields jsonIndex jsonKeys input = JsonMetricState $ M.fromList $ keepMetrics $ concat $ map HM.toList jsons
   where
     matching line = do
