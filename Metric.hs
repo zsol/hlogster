@@ -10,12 +10,17 @@ module Metric (
 
 import qualified ConfigBase                      as Conf
 import           Control.Parallel.Strategies     (parMap, rdeepseq)
+import qualified Data.Aeson as J
 import           Data.Array                      as A
 import qualified Data.ByteString.Char8           as SB
 import qualified Data.ByteString.Lazy.Char8      as B
+import Data.Either (rights)
+import qualified Data.HashMap.Strict as HM
+import Data.Maybe (catMaybes)
 import           Data.Function                   (on)
 import           Data.List
 import qualified Data.Map                        as M
+import qualified Data.Text as T
 import           Parsers
 import           Text.Regex.Base.RegexLike       (MatchText, matchAllText,
                                                   matchCount)
@@ -50,7 +55,8 @@ data TimingMetricState = TimingMetricState {
 
 data MetricState =
   CounterMetricState String Float |
-  Timings (M.Map String TimingMetricState)
+  Timings (M.Map String TimingMetricState) |
+  JsonMetricState (M.Map String [String])
 
 combineTimingState :: TimingMetricState -> TimingMetricState -> TimingMetricState
 combineTimingState (TimingMetricState {min' = amin, max' = amax, avg' = aavg, num' = anum}) (TimingMetricState {min' = bmin, max' = bmax, avg' = bavg, num' = bnum}) = TimingMetricState {
@@ -65,12 +71,14 @@ instance IMetricState MetricState
   where
     combine (CounterMetricState name' a) (CounterMetricState _ b) = CounterMetricState name' (a+b)
     combine (Timings a) (Timings b) = Timings $ M.unionWith combineTimingState a b
+    combine (JsonMetricState a) (JsonMetricState b) = JsonMetricState $ M.union a b
     combine _ _ = undefined
 
     toResults timestamp (CounterMetricState name' a)
       | a == 0 = []
       | otherwise = [(name', show a, timestamp)]
     toResults timestamp (Timings a) = concat [[ (name ++ "." ++ x, show $ y state, timestamp) | (x, y) <- zip ["min", "max", "avg", "count"] [min', max', avg', num']] | (name, state) <- M.toList a] -- omg so ugly
+    toResults timestamp (JsonMetricState a) = concat [ zip3 (repeat key) values (repeat timestamp) | (key, values) <- M.toList a]
 
 countEvents :: SB.ByteString -> SB.ByteString -> String -> [B.ByteString] -> MetricState
 countEvents category eventId nameString input = CounterMetricState nameString (fromIntegral $ length $ events input)
@@ -127,6 +135,22 @@ select :: Ix i => [i] -> Array i a -> [a]
 select [] _ = []
 select (x:xs) arr = arr A.! x : select xs arr
 
+jsonMetrics :: String -> [(Int, SB.ByteString)] -> Int -> [String] -> [ByteString] -> MetricState
+jsonMetrics nameString fields jsonIndex jsonKeys input = JsonMetricState $ M.fromList $ keepMetrics $ concat $ map HM.toList jsons
+  where
+    matching line = do
+      fs <- getFields (map fst fields) line
+      return $ and $ map (\(x,y) -> x == y) (zip fs (map snd fields))
+    matchingLines = map (B.unwords . drop (jsonIndex - 1) . B.words . snd) $
+                    filter ((== Right True) . fst) $
+                    map (\(x,y) -> (matching x, y)) (zip input input)
+    jsons = catMaybes $ map J.decode' matchingLines :: [J.Object]
+    keepMetrics (kv:kvs) = keepMetrics kvs ++ case kv of
+      (k, J.Number v) -> [(nameString ++ "." ++ T.unpack k, [show v])]
+      _               -> []
+    keepMetrics [] = []
+    
+
 makeMetric :: Conf.Config -> Metric MetricState
 makeMetric Conf.EventCounter {Conf.name = name', Conf.event = event, Conf.category = category} =
   countEvents (SB.pack category) (SB.pack event) name'
@@ -136,6 +160,8 @@ makeMetric Conf.RegexCounter {Conf.name = name', Conf.regex = regex} =
   countRegexen regex name'
 makeMetric Conf.RegexTiming {Conf.name = name', Conf.regex = regex, Conf.durationGroup = durationGroup, Conf.nameSuffixes = nameSuffixes} =
   timingRegex regex name' durationGroup nameSuffixes
+makeMetric Conf.JsonMetric {Conf.name = name', Conf.matchFields = fields, Conf.jsonFieldIndex = jsonIndex, Conf.jsonKeys = jsonKeys} = 
+  jsonMetrics name' (map (\x -> (Conf.index x, SB.pack $ Conf.match x)) fields) jsonIndex jsonKeys
 
 getResults :: IMetricState state => Metric state -> [B.ByteString] -> Results
 getResults metric input = toResultsNow $ metric input
