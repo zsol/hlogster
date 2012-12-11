@@ -136,16 +136,23 @@ select :: Ix i => [i] -> Array i a -> [a]
 select [] _ = []
 select (x:xs) arr = arr A.! x : select xs arr
 
+catMaybesInFst [] = []
+catMaybesInFst ((Nothing, _):a) = catMaybesInFst a
+catMaybesInFst ((Just a, a'):as) = (a, a') : catMaybesInFst as
+
 jsonMetrics :: String -> [(Int, SB.ByteString)] -> Int -> [String] -> [B.ByteString] -> MetricState
-jsonMetrics nameString fields jsonIndex jsonKeys input = JsonMetricState $ M.fromList $ keepMetrics $ concat $ map HM.toList jsons
+jsonMetrics nameString fields jsonIndex jsonKeys input = JsonMetricState $ M.fromList $ keepMetrics $ concat $ map buildName jsons
   where
     matching line = do
       fs <- getFields (map fst fields) line
       return $ and $ map (\(x,y) -> x == y) (zip fs (map snd fields))
-    matchingLines = map (B.unwords . drop (jsonIndex - 1) . B.words . snd) $
+    matchingLines = map (\x -> (B.unwords $ drop (jsonIndex - 1) $ B.words $ snd x, getFields [3] $ snd x)) $
                     filter ((== Right True) . fst) $
                     map (\(x,y) -> (matching x, y)) (zip input input)
-    jsons = catMaybes $ map J.decode' matchingLines :: [J.Object]
+    jsons = catMaybesInFst $ map (\(x, y) -> (J.decode' x, y)) matchingLines :: [(J.Object, Either String [SB.ByteString])]
+    buildName :: (J.Object, Either String [SB.ByteString]) -> [(T.Text, J.Value)]
+    buildName (obj, Right [namePrefix]) = map (\(x, y) -> (T.pack $ (SB.unpack (fst $ SB.breakSubstring (SB.pack ".prezi.private") namePrefix)) ++ "." ++ (T.unpack x), y)) (HM.toList obj)
+    buildName (obj, _) = HM.toList obj
     keepMetrics (kv:kvs) = keepMetrics kvs ++ case kv of
       (k, J.Number v) -> [(nameString ++ "." ++ T.unpack k, [show v])]
       _               -> []
