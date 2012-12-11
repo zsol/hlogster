@@ -26,13 +26,14 @@ import           Text.Regex.Base.RegexLike       (MatchText, matchAllText,
                                                   matchCount)
 import           Text.Regex.PCRE.ByteString.Lazy
 
+#ifdef MIN_VERSION_bytestring(0,10,0,0)
 -- this is implemented properly in bytestring > 0.10
 import           Control.DeepSeq
 import           Data.ByteString.Lazy.Internal
 instance NFData ByteString where
   rnf Empty       = ()
   rnf (Chunk _ b) = rnf b
-
+#endif
 
 type (Metric state) = [B.ByteString] -> state
 type Timestamp = String

@@ -51,7 +51,6 @@ Build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
-
 Executable hlogster
   -- .hs or .lhs file containing the Main module.
     Main-is: Logster.hs
@@ -61,6 +60,9 @@ Executable hlogster
     GHC-Options: -O2 -threaded -feager-blackholing -with-rtsopts=-N -rtsopts
   -- Modules not exported by this package.
     Other-modules: Metric, Parsers, Carbon
+    
+    Extensions: CPP
+
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
