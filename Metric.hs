@@ -20,6 +20,7 @@ import Data.Maybe (catMaybes)
 import           Data.Function                   (on)
 import           Data.List
 import qualified Data.Map                        as M
+import Data.Ratio
 import qualified Data.Text as T
 import           Parsers
 import           Text.Regex.Base.RegexLike       (MatchText, matchAllText,
@@ -57,7 +58,8 @@ data TimingMetricState = TimingMetricState {
 data MetricState =
   CounterMetricState String Float |
   Timings (M.Map String TimingMetricState) |
-  JsonMetricState (M.Map String [String])
+  JsonMetricState (M.Map String [String]) |
+  Timings2 (M.Map String [Float])
 
 combineTimingState :: TimingMetricState -> TimingMetricState -> TimingMetricState
 combineTimingState (TimingMetricState {min' = amin, max' = amax, avg' = aavg, num' = anum}) (TimingMetricState {min' = bmin, max' = bmax, avg' = bavg, num' = bnum}) = TimingMetricState {
@@ -67,12 +69,23 @@ combineTimingState (TimingMetricState {min' = amin, max' = amax, avg' = aavg, nu
       num' = anum + bnum
       }
 
+calculateMetrics :: [Float] -> [(String, Float)]
+calculateMetrics floats = [(key, metric floats) | (key, metric) <- [("min", minimum), ("max", maximum), ("avg", average), ("count", fromIntegral . length), ("90p", percentile 90), ("99p", percentile 99), ("99_9p", quantile 1000 999)]]
+
+quantile :: Integral a => a -> a -> [b] -> b
+quantile q k xs = xs !! (ind - 1)
+  where
+    ind = floor $ (k % q) * (fromIntegral $ length xs) + (1 % 2)
+
+percentile :: Integral a => a -> [b] -> b
+percentile = quantile 100
 
 instance IMetricState MetricState
   where
     combine (CounterMetricState name' a) (CounterMetricState _ b) = CounterMetricState name' (a+b)
     combine (Timings a) (Timings b) = Timings $ M.unionWith combineTimingState a b
     combine (JsonMetricState a) (JsonMetricState b) = JsonMetricState $ M.union a b
+    combine (Timings2 a) (Timings2 b) = Timings2 $ M.unionWith (++) a b
     combine _ _ = undefined
 
     toResults timestamp (CounterMetricState name' a)
@@ -80,6 +93,7 @@ instance IMetricState MetricState
       | otherwise = [(name', show a, timestamp)]
     toResults timestamp (Timings a) = concat [[ (name ++ "." ++ x, show $ y state, timestamp) | (x, y) <- zip ["min", "max", "avg", "count"] [min', max', avg', num']] | (name, state) <- M.toList a] -- omg so ugly
     toResults timestamp (JsonMetricState a) = concat [ zip3 (repeat key) values (repeat timestamp) | (key, values) <- M.toList a]
+    toResults timestamp (Timings2 a) = concat [map (\(x, y) -> (key ++ "." ++ x, show y, timestamp)) (calculateMetrics values) | (key, values) <- M.toList a]
 
 countEvents :: SB.ByteString -> SB.ByteString -> String -> [B.ByteString] -> MetricState
 countEvents category eventId nameString input = CounterMetricState nameString (fromIntegral $ length $ events input)
@@ -129,6 +143,26 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
     state durs = TimingMetricState {min' = minimum durs, max' = maximum durs,
                                     avg' = average durs, num' = fromIntegral $ length durs}
 
+timingRegex2 :: Regex -> String -> Int -> [Int] -> [B.ByteString] -> MetricState
+timingRegex2 regex nameString durationGroup nameSuffixes input = Timings2 $ M.fromList $ map buildName states
+  where
+    buildName (suffix, metricStates)
+      | B.null suffix = (nameString, metricStates)
+      | otherwise     = (nameString ++ "." ++ B.unpack suffix, metricStates)
+    matches :: [MatchText B.ByteString]
+    matches = concatMap (matchAllText regex) input
+    durations = parMap rdeepseq (read . B.unpack . fst . (A.! durationGroup)) matches :: [Float]
+    names = parMap rdeepseq (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
+    durationsByName :: [[(B.ByteString, Float)]]
+    durationsByName = case durations of
+      [] -> []
+      _  -> case names of
+        [] -> [zip (repeat B.empty) durations]
+        _  -> groupBy ((==) `on` fst) (zip names durations)
+    states = map pair durationsByName
+    pair [] = error "Internal error in timingRegex: pair applied to empty list"
+    pair durs@((name,_):_) = (name, map snd durs)
+
 average :: Fractional a => [a] -> a
 average a = sum a / fromIntegral (length a)
 
@@ -167,7 +201,7 @@ makeMetric Conf.FieldCounter {Conf.name = name', Conf.fields = fields} =
 makeMetric Conf.RegexCounter {Conf.name = name', Conf.regex = regex} =
   countRegexen regex name'
 makeMetric Conf.RegexTiming {Conf.name = name', Conf.regex = regex, Conf.durationGroup = durationGroup, Conf.nameSuffixes = nameSuffixes} =
-  timingRegex regex name' durationGroup nameSuffixes
+  timingRegex2 regex name' durationGroup nameSuffixes
 makeMetric Conf.JsonMetric {Conf.name = name', Conf.matchFields = fields, Conf.jsonFieldIndex = jsonIndex, Conf.jsonKeys = jsonKeys} = 
   jsonMetrics name' (map (\x -> (Conf.index x, SB.pack $ Conf.match x)) fields) jsonIndex jsonKeys
 
