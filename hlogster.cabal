@@ -59,9 +59,7 @@ Executable hlogster
     Build-depends: base, network, split, time, attoparsec, bytestring, parallel, old-locale, data-clist, mtl, template-haskell, regex-pcre, regex-base, array, containers, deepseq, aeson, unordered-containers, text
     GHC-Options: -O2 -threaded -feager-blackholing -with-rtsopts=-N -rtsopts
   -- Modules not exported by this package.
-    Other-modules: Metric, Parsers, Carbon
-    
-    Extensions: CPP
+    Other-modules: Metrics, Parsers, Carbon
 
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.

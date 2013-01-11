@@ -7,7 +7,9 @@ import           Control.Monad              (when)
 import qualified Data.ByteString.Lazy.Char8 as B
 import           Data.List
 import           Data.Time.LocalTime        (TimeZone, getCurrentTimeZone)
-import           Metric
+import           Data.Either
+import           Metrics.Common
+import           Metrics
 import           Network
 import           System.Console.GetOpt
 import           System.Environment
@@ -88,7 +90,7 @@ main = do
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
   when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
-
+  
   tz <- getCurrentTimeZone
   input <- B.getContents
 

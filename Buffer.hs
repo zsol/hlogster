@@ -10,7 +10,7 @@ import           Data.Maybe                 (fromJust)
 import           Data.Time.Clock.POSIX      (utcTimeToPOSIXSeconds)
 import           Data.Time.Format
 import           Data.Time.LocalTime        (TimeZone, localTimeToUTC)
-import           Metric
+import           Metrics.Common (IMetricState(combine, toResults), Metric, Results, Timestamp)
 import           Parsers
 import           System.Locale
 
