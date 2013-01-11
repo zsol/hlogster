@@ -83,7 +83,7 @@ waitForChildren = do
     []   -> return ()
     m:ms -> do
       putMVar children ms
-      takeMVar m
+      _ <- takeMVar m
       waitForChildren
 
 forkChild :: IO () -> IO ThreadId
@@ -95,7 +95,7 @@ forkChild io = do
 
 #ifdef USE_EKG
 countLines :: Counter -> [B.ByteString] -> IO ()
-countLines counter (line:lines) = inc counter >> countLines counter lines
+countLines counter (_:lines) = inc counter >> countLines counter lines
 countLines _ [] = return ()
 #endif
 
