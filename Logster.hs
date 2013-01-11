@@ -18,7 +18,9 @@ import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
 #ifdef USE_EKG
+import qualified Data.Text as T
 import System.Remote.Monitoring
+import System.Remote.Counter
 #endif
 
 type Line = String
@@ -91,6 +93,11 @@ forkChild io = do
   putMVar children (mvar:childs)
   forkIO (io `finally` putMVar mvar ())
 
+#ifdef USE_EKG
+countLines :: Counter -> [B.ByteString] -> IO ()
+countLines counter (line:lines) = inc counter >> countLines counter lines
+countLines _ [] = return ()
+#endif
 
 main :: IO ()
 main = do
@@ -100,6 +107,11 @@ main = do
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
   when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
+
+  tz <- getCurrentTimeZone
+  input <- B.getContents
+  let inputLines = B.split '\n' input
+
 #ifdef USE_EKG
   let isEKGPort (EKGPort _) = True
       isEKGPort _ = False
@@ -107,13 +119,12 @@ main = do
         Just (EKGPort p) -> read p
         Nothing -> 1030
 
-  _ <- forkServer (SB.pack "localhost") ekgPort
+  ekg <- forkServer (SB.pack "localhost") ekgPort
+  lineCounter <- getCounter (T.pack "loglines") ekg
+  _ <- forkChild $ countLines lineCounter inputLines
 #endif
-  
-  tz <- getCurrentTimeZone
-  input <- B.getContents
 
-  let threads = map (\metric -> mapM_ ($ produceOutput tz metric (B.split '\n' input)) outputActions) metrics :: [IO ()]
+  let threads = map (\metric -> mapM_ ($ produceOutput tz metric inputLines) outputActions) metrics :: [IO ()]
 
   mapM_ forkChild threads
 
