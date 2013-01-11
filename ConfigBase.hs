@@ -14,3 +14,6 @@ data Config =
 
 data FieldSpec = Field { index :: Int, match :: String }
 
+instance Show Config where
+  show = name
+
