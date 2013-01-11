@@ -51,13 +51,21 @@ Build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
+Flag Monitoring
+     Description: Expose process statistics via HTTP
+
 Executable hlogster
   -- .hs or .lhs file containing the Main module.
     Main-is: Logster.hs
   
   -- Packages needed in order to build this package.
     Build-depends: base, network, split, time, attoparsec, bytestring, parallel, old-locale, data-clist, mtl, template-haskell, regex-pcre, regex-base, array, containers, deepseq, aeson, unordered-containers, text
+
     GHC-Options: -O2 -threaded -feager-blackholing -with-rtsopts=-N -rtsopts
+
+    if flag(monitoring)
+       Build-depends: ekg
+       CPP-Options: -DUSE_EKG
   -- Modules not exported by this package.
     Other-modules: Metrics, Parsers, Carbon
 

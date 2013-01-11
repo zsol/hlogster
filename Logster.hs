@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 import           Buffer                     (getResultsBufferedBySecond)
 import           Carbon
 import           Config
@@ -5,9 +6,9 @@ import           Control.Concurrent
 import           Control.Exception          (finally)
 import           Control.Monad              (when)
 import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString.Char8 as SB
 import           Data.List
 import           Data.Time.LocalTime        (TimeZone, getCurrentTimeZone)
-import           Data.Either
 import           Metrics.Common
 import           Metrics
 import           Network
@@ -16,6 +17,9 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
+#ifdef USE_EKG
+import System.Remote.Monitoring
+#endif
 
 type Line = String
 
@@ -90,6 +94,9 @@ main = do
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
   when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
+#ifdef USE_EKG
+  _ <- forkServer (SB.pack "localhost") 1030
+#endif
   
   tz <- getCurrentTimeZone
   input <- B.getContents
