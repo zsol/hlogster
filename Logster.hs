@@ -26,6 +26,9 @@ type Line = String
 data Flag =
   Help |
   Graphite String |
+#ifdef USE_EKG
+  EKGPort String |
+#endif
   Debug
   deriving (Eq, Show)
 
@@ -39,6 +42,9 @@ options =
   [ Option "h" ["help"] (NoArg Help) "Show usage"
   , Option "g" ["graphite"] (ReqArg Graphite "HOST:PORT") "Send metric data to HOST:PORT"
   , Option "d" ["debug"] (NoArg Debug) "Send metric data to stderr"
+#ifdef USE_EKG
+  , Option "s" ["stats-port"] (ReqArg EKGPort "PORT") "Expose process stats on PORT"
+#endif
   ]
 
 header :: String
@@ -95,7 +101,13 @@ main = do
   when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
 #ifdef USE_EKG
-  _ <- forkServer (SB.pack "localhost") 1030
+  let isEKGPort (EKGPort _) = True
+      isEKGPort _ = False
+      ekgPort = case find isEKGPort opts of
+        Just (EKGPort p) -> read p
+        Nothing -> 1030
+
+  _ <- forkServer (SB.pack "localhost") ekgPort
 #endif
   
   tz <- getCurrentTimeZone
