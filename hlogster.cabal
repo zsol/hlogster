@@ -59,7 +59,7 @@ Executable hlogster
     Main-is: Logster.hs
   
   -- Packages needed in order to build this package.
-    Build-depends: base, network, split, time, attoparsec, bytestring, parallel, old-locale, data-clist, mtl, template-haskell, regex-pcre, regex-base, array, containers, deepseq, aeson, unordered-containers, text
+    Build-depends: base, network, split, time, attoparsec, bytestring, parallel, old-locale, data-clist, mtl, template-haskell, regex-pcre, regex-base, array, containers, deepseq, aeson, unordered-containers, text, pipes >= 3.0.0, pipes < 3.1.0
 
     GHC-Options: -O2 -threaded -feager-blackholing -rtsopts
 

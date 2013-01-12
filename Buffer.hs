@@ -29,6 +29,9 @@ isEmpty = C.isEmpty
 getResultsBufferedBySecond :: IMetricState a => TimeZone -> Int -> [B.ByteString] -> Metric a -> [Results]
 getResultsBufferedBySecond tz maxSize input metric = evalState (process tz maxSize metric input) empty
 
+runMetric :: IMetricState a => TimeZone -> Int -> Metric a -> B.ByteString -> RingBuffer a -> ([Results], RingBuffer a)
+runMetric tz maxSize metric inputLine startState = runState (process tz maxSize metric [inputLine]) startState
+
 getTime :: B.ByteString -> Either String Time
 getTime = getDatetime
 

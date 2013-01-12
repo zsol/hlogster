@@ -4,6 +4,7 @@ module Metrics.Common where
 import qualified Data.ByteString.Lazy.Char8      as B
 import qualified Data.Map                        as M
 import Data.Ratio
+import Control.DeepSeq (NFData)
 
 type Metric a = [B.ByteString] -> a
 type Timestamp = String
@@ -43,6 +44,8 @@ instance IMetricState MetricState
       | a == 0 = []
       | otherwise = [(name', show a, timestamp)]
     toResults timestamp (JsonMetricState a) = concat [ zip3 (repeat key) values (repeat timestamp) | (key, values) <- M.toList a]
+
+instance NFData MetricState
 
 combineTimingState :: TimingMetricState -> TimingMetricState -> TimingMetricState
 combineTimingState (TimingMetricState {min' = amin, max' = amax, avg' = aavg, num' = anum}) (TimingMetricState {min' = bmin, max' = bmax, avg' = bavg, num' = bnum}) = TimingMetricState {

@@ -1,10 +1,10 @@
 {-# LANGUAGE CPP #-}
-import           Buffer                     (getResultsBufferedBySecond)
+import           Buffer                     (getResultsBufferedBySecond, empty, runMetric)
 import           Carbon
 import           Config
 import           Control.Concurrent
 import           Control.Exception          (finally)
-import           Control.Monad              (when)
+import           Control.Monad              (when, unless)
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Char8 as SB
 import           Data.List
@@ -17,10 +17,28 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
+import Control.Proxy
+import Control.Parallel.Strategies (parMap, rdeepseq)
 #ifdef USE_EKG
 import qualified Data.Text as T
 import System.Remote.Monitoring
 import System.Remote.Counter
+#endif
+
+-- this hackery with macros is needed to make ghci load this file
+#ifdef MIN_VERSION_bytestring
+#if MIN_VERSION_bytestring(0,10,0)
+-- this is implemented properly in bytestring > 0.10
+{-
+#endif
+#endif
+import           Control.DeepSeq
+import           Data.ByteString.Internal
+instance NFData ByteString
+#ifdef MIN_VERSION_bytestring
+#if MIN_VERSION_bytestring(0,10,0)
+-}
+#endif
 #endif
 
 type Line = String
@@ -38,6 +56,8 @@ isOutputFlag :: Flag -> Bool
 isOutputFlag (Graphite _) = True
 isOutputFlag Debug = True
 isOutputFlag _ = False
+
+bufferSize = 10
 
 options :: [OptDescr Flag]
 options =
@@ -68,10 +88,21 @@ outputFlagToAction (Graphite hostport) action = do
     portNum = read port :: Int
 outputFlagToAction _ _                        = error "Something has gone horribly wrong."
 
+outputFlagToHandle :: Flag -> IO Handle
+outputFlagToHandle Debug = return stdout
+outputFlagToHandle (Graphite hostport) = do
+  h <- connectTo host (PortNumber $ fromIntegral portNum)
+  hSetBuffering h LineBuffering
+  return h
+  where  
+    (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
+    portNum = read port :: Int
+outputFlagToHandle _ = error "Something has gone horribly wrong."
+
 produceOutput :: IMetricState a => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
 produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
-    result = concat $ getResultsBufferedBySecond tz 10 input metric
+    result = concat $ getResultsBufferedBySecond tz bufferSize input metric
 
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []
@@ -97,7 +128,33 @@ forkChild io = do
 countLines :: Counter -> [B.ByteString] -> IO ()
 countLines counter (_:lines) = inc counter >> countLines counter lines
 countLines _ [] = return ()
+
+lineCounterPipe :: Proxy p => Counter -> () -> Pipe p a a IO ()
+lineCounterPipe counter () = runIdentityP $ forever $ do
+  input <- request ()
+  lift $ inc counter
+  respond input
 #endif
+
+inputProducer :: Proxy p => [B.ByteString] -> () -> Producer p B.ByteString IO ()
+inputProducer input () = runIdentityP $ loop input
+  where
+    loop (line:lines) = respond line >> loop lines
+    loop [] = return ()
+
+metricPipe :: (Proxy p, IMetricState a, Monad m, NFData a) => TimeZone -> Metric a -> () -> Pipe p B.ByteString Results m ()
+metricPipe tz metric () = runIdentityP $ loop empty
+  where
+    loop state = do
+      input <- request ()
+      let (results, newState) = runMetric tz bufferSize metric input state
+      _ <- respond $ concat results
+      loop newState
+
+resultConsumer :: (Proxy p) => [Handle] -> () -> Consumer p Results IO ()
+resultConsumer handles () = runIdentityP $ forever $ do
+  results <- request ()
+  mapM_ (\r -> mapM_ (lift . sendToCarbon r) handles) results
 
 main :: IO ()
 main = do
@@ -106,8 +163,10 @@ main = do
   when (Help `elem` opts) $ putStrLn (usageInfo header options) >> exitSuccess
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
   when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
+  handles <- mapM outputFlagToHandle $ filter isOutputFlag opts
   let metrics = map makeMetric config
 
+  
   tz <- getCurrentTimeZone
   input <- B.getContents
   let inputLines = B.split '\n' input
@@ -121,11 +180,18 @@ main = do
 
   ekg <- forkServer (SB.pack "localhost") ekgPort
   lineCounter <- getCounter (T.pack "loglines") ekg
-  _ <- forkChild $ countLines lineCounter inputLines
 #endif
 
-  let threads = map (\metric -> mapM_ ($ produceOutput tz metric inputLines) outputActions) metrics :: [IO ()]
-
-  mapM_ forkChild threads
-
+  mapM_ (\metric -> forkChild $ runProxy $ inputProducer inputLines >->
+#ifdef USE_EKG
+                                           lineCounterPipe lineCounter >->
+#endif
+                                           metricPipe tz metric >->
+                                           resultConsumer handles) metrics
   waitForChildren
+
+  -- let threads = map (\metric -> mapM_ ($ produceOutput tz metric inputLines) outputActions) metrics :: [IO ()]
+
+  -- mapM_ forkChild threads
+
+  -- waitForChildren
