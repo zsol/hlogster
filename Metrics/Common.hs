@@ -20,14 +20,14 @@ class IMetricState a
 data MetricState
   = CounterMetricState String Float
   | Timings (M.Map String TimingMetricState)
-  | Timings2 (M.Map String [Float])
+  | Timings2 (M.Map String [Double])
   | JsonMetricState (M.Map String [String])
 
 data TimingMetricState = TimingMetricState {
-    min' :: Float,
-    max' :: Float,
-    avg' :: Float,
-    num' :: Float
+    min' :: Double,
+    max' :: Double,
+    avg' :: Double,
+    num' :: Double
     }
 
 instance IMetricState MetricState
@@ -52,7 +52,7 @@ combineTimingState (TimingMetricState {min' = amin, max' = amax, avg' = aavg, nu
       num' = anum + bnum
       }
 
-calculateMetrics :: [Float] -> [(String, Float)]
+calculateMetrics :: [Double] -> [(String, Double)]
 calculateMetrics floats = [(key, metric floats) | (key, metric) <- [("min", minimum), ("max", maximum), ("avg", average), ("count", fromIntegral . length), ("90p", percentile 90), ("99p", percentile 99), ("99_9p", quantile 1000 999)]]
 
 quantile :: Integral a => a -> a -> [b] -> b
