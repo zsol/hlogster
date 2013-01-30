@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-import           Buffer                     (getResultsBufferedBySecond)
+import           Buffer                     (getResultsBufferedBySecond, getTime)
 import           Carbon
 import           Config
 import           Control.Concurrent
@@ -17,7 +17,7 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
-import Control.Parallel.Strategies (NFData)
+import Control.Parallel.Strategies
 #ifdef USE_EKG
 import qualified Data.Text as T
 import System.Remote.Monitoring
@@ -72,7 +72,8 @@ outputFlagToAction _ _                        = error "Something has gone horrib
 produceOutput :: (IMetricState a, NFData a) => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
 produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
-    result = concat $ getResultsBufferedBySecond tz 10 input metric
+    result = concat $ getResultsBufferedBySecond tz 10 (zip timestamps input) metric
+    timestamps = {-# SCC "getTime" #-} withStrategy (parBuffer 10 rdeepseq) $ map getTime input
 
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []

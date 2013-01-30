@@ -27,10 +27,10 @@ size = C.size
 isEmpty :: RingBuffer a -> Bool
 isEmpty = C.isEmpty
 
-getResultsBufferedBySecond :: (IMetricState a, NFData a) => TimeZone -> Int -> [B.ByteString] -> Metric a -> [Results]
-getResultsBufferedBySecond tz maxSize input metric = evalState ({-# SCC "process" #-} process tz maxSize timesStates) empty
+getResultsBufferedBySecond :: (IMetricState a, NFData a) => TimeZone -> Int -> [(Either String Time, B.ByteString)] -> Metric a -> [Results]
+getResultsBufferedBySecond tz maxSize timeInput metric = evalState ({-# SCC "process" #-} process tz maxSize timesStates) empty
   where
-    timesStates = withStrategy (parBuffer 10 rdeepseq) $ map (\i -> ({-# SCC "getTime" #-}getTime i, {-# SCC "metric" #-}metric [i])) input
+    timesStates = withStrategy (parBuffer 10 rdeepseq) $ map (\(t, i) -> (t, {-# SCC "metric" #-}metric [i])) timeInput
 
 getTime :: B.ByteString -> Either String Time
 getTime = getDatetime
