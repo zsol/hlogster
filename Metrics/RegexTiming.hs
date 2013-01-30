@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 module Metrics.RegexTiming(timingRegex, timingRegex2) where
 
 import Metrics.Common
@@ -12,24 +11,6 @@ import Data.List (groupBy)
 import Data.Function (on)
 import Data.Attoparsec.ByteString.Lazy
 import Data.Attoparsec.ByteString.Char8 (double)
-
--- this hackery with macros is needed to make ghci load this file
-#ifdef MIN_VERSION_bytestring
-#if MIN_VERSION_bytestring(0,10,0)
--- this is implemented properly in bytestring > 0.10
-{-
-#endif
-#endif
-import           Control.DeepSeq
-import           Data.ByteString.Lazy.Internal
-instance NFData ByteString where
-  rnf Empty       = ()
-  rnf (Chunk _ b) = rnf b
-#ifdef MIN_VERSION_bytestring
-#if MIN_VERSION_bytestring(0,10,0)
--}
-#endif
-#endif
 
 select :: Ix i => [i] -> Array i a -> [a]
 select [] _ = []
@@ -54,7 +35,7 @@ pair _ [] = error "Internal error in timingRegex: pair applied to empty list"
 pair state durs@((name,_):_) = {-# SCC "pair" #-}  (name, state (map snd durs))
 
 
-durationByName :: [Double] -> [ByteString] -> [[(ByteString, Double)]]
+durationByName :: [b] -> [B.ByteString] -> [[(B.ByteString, b)]]
 durationByName durations names = {-# SCC "byname" #-} case durations of
   [] -> []
   _  -> case names of

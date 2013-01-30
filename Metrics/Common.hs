@@ -1,9 +1,29 @@
-{-# LANGUAGE ExistentialQuantification, Rank2Types, TemplateHaskell #-}
+{-# LANGUAGE ExistentialQuantification, Rank2Types, TemplateHaskell, CPP #-}
 module Metrics.Common where
 
 import qualified Data.ByteString.Lazy.Char8      as B
 import qualified Data.Map                        as M
 import Data.Ratio
+
+-- this hackery with macros is needed to make ghci load this file
+#ifdef MIN_VERSION_bytestring
+#if MIN_VERSION_bytestring(0,10,0)
+-- this is implemented properly in bytestring > 0.10
+{-
+#endif
+#endif
+import           Control.DeepSeq
+import           Data.ByteString.Lazy.Internal
+import qualified Data.ByteString.Char8 as SB
+instance NFData SB.ByteString
+instance NFData ByteString where
+  rnf Empty       = ()
+  rnf (Chunk _ b) = rnf b
+#ifdef MIN_VERSION_bytestring
+#if MIN_VERSION_bytestring(0,10,0)
+-}
+#endif
+#endif
 
 type Metric a = [B.ByteString] -> a
 type Timestamp = String
