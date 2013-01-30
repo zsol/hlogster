@@ -25,6 +25,8 @@ instance NFData ByteString where
 #endif
 #endif
 
+instance NFData MetricState
+
 type Metric a = [B.ByteString] -> a
 type Timestamp = String
 type Results = [(String, String, Timestamp)]

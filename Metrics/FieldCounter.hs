@@ -8,7 +8,7 @@ import Data.Either
 import Control.Parallel.Strategies
 
 countFields :: [(Int, SB.ByteString)] -> String -> [B.ByteString] -> MetricState
-countFields spec nameString input = CounterMetricState nameString (fromIntegral $ length $ rights $ parMap rdeepseq match input)
+countFields spec nameString input = CounterMetricState nameString ({-# SCC "countField" #-}fromIntegral $ length $ rights $ parMap rdeepseq match input)
   where
     match line = do
       fields <- getFields (map fst spec) line

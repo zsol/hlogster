@@ -17,6 +17,7 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
+import Control.Parallel.Strategies (NFData)
 #ifdef USE_EKG
 import qualified Data.Text as T
 import System.Remote.Monitoring
@@ -68,7 +69,7 @@ outputFlagToAction (Graphite hostport) action = do
     portNum = read port :: Int
 outputFlagToAction _ _                        = error "Something has gone horribly wrong."
 
-produceOutput :: IMetricState a => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
+produceOutput :: (IMetricState a, NFData a) => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
 produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
     result = concat $ getResultsBufferedBySecond tz 10 input metric
