@@ -79,6 +79,5 @@ Executable hlogster
 
 Test-Suite test-hlogster
     type: exitcode-stdio-1.0
-    test-module: Test
     main-is: Test.hs
     build-depends: HUnit
