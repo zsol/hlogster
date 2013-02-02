@@ -4,6 +4,7 @@ module Metrics.Common where
 import qualified Data.ByteString.Lazy.Char8      as B
 import qualified Data.Map                        as M
 import Data.Ratio
+import           Control.DeepSeq
 
 -- this hackery with macros is needed to make ghci load this file
 #ifdef MIN_VERSION_bytestring
@@ -12,7 +13,6 @@ import Data.Ratio
 {-
 #endif
 #endif
-import           Control.DeepSeq
 import           Data.ByteString.Lazy.Internal
 import qualified Data.ByteString.Char8 as SB
 instance NFData SB.ByteString
