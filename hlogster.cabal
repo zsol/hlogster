@@ -76,4 +76,9 @@ Executable hlogster
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
-  
+
+Test-Suite test-hlogster
+    type: exitcode-stdio-1.0
+    test-module: Test
+    main-is: Test.hs
+    build-depends: HUnit

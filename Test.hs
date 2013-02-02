@@ -1,9 +1,10 @@
 import Buffer
-import Metric
+import Metrics.Common
 import Test.HUnit
 import qualified Data.ByteString.Char8 as SB
 import qualified Data.ByteString.Lazy.Char8 as B
 import Data.Either
+import System.Exit
 
 data DummyState = DS deriving (Show, Eq)
 
@@ -50,9 +51,16 @@ tests = test [ "Insert into empty buffer" ~: size (insertIntoBuf DS empty someTi
               , "downSizeBuf is noop when buf at limit" ~: downSizeBuf someBuf 1 @?= (someBuf, Nothing)
               , "downSizeBuf pops when too big" ~: downSizeBuf someBuf 0 @?= (empty, Just (someTime, DS))
               , "downSizeBuf pops oldest when too big" ~: downSizeBuf someLaterBuf 1 @?= (justLaterBuf, Just (someTime, DS))
-              , "processLine inserts if too small" ~: processLine 2 dummyMetric B.empty someTime empty @?= (someBuf, Nothing)
-              , "processLine drops if very old and at size" ~: processLine 1 dummyMetric B.empty someOldTime someBuf @?= (someBuf, Nothing)
-              , "processLine downsizes if too big" ~: processLine 1 dummyMetric B.empty someLaterTime someBuf @?= (justLaterBuf, Just (someTime, DS))
-              , "processLine should merge ABA style input" ~: processLine 2 dummyMetric B.empty someTime someLaterBuf @?= (someLaterBuf, Nothing)
+              , "processLine inserts if too small" ~: processLine 2 (dummyMetric B.empty) someTime empty @?= (someBuf, Nothing)
+              , "processLine drops if very old and at size" ~: processLine 1 (dummyMetric B.empty) someOldTime someBuf @?= (someBuf, Nothing)
+              , "processLine downsizes if too big" ~: processLine 1 (dummyMetric B.empty) someLaterTime someBuf @?= (justLaterBuf, Just (someTime, DS))
+              , "processLine should merge ABA style input" ~: processLine 2 (dummyMetric B.empty) someTime someLaterBuf @?= (someLaterBuf, Nothing)
               , "Out of order insertion should combine" ~: size (foldl (insertIntoBuf DS) empty (rights $ map getTime dummyInput)) @?= 4
               ]
+
+main = do
+  counts <- runTestTT tests
+  let exitCode = case (errors counts) + (failures counts) of
+        0 -> ExitSuccess
+        a -> ExitFailure a
+  exitWith exitCode
