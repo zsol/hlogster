@@ -11,14 +11,10 @@ makeEventCounter EventCounter {name = name, event = event, category = category} 
   countEvents (SB.pack category) (SB.pack event) name
 makeEventCounter _ = Left "eventcounter config barf."
 
-countEvents :: SB.ByteString -> SB.ByteString -> String -> [B.ByteString] -> MetricState
-countEvents category eventId nameString input = CounterMetricState nameString (fromIntegral $ length $ events input)
+countEvents :: SB.ByteString -> SB.ByteString -> String -> B.ByteString -> MetricState
+countEvents category eventId nameString input = CounterMetricState nameString value
   where
-    events [] = []
-    events (l:ls)
-      | (category, eventId) == categoryAndEvent l = () : events ls
-      | otherwise                                 = events ls
-    categoryAndEvent line = case getCategoryAndEvent line of
-      Right a -> a
-      Left _ -> (SB.pack "", SB.pack "") -- TODO
+    value = case getCategoryAndEvent input of
+      Right catEv -> if catEv == (category, eventId) then 1 else 0
+      _           -> 0
 

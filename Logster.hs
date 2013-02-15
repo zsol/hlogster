@@ -69,23 +69,6 @@ outputFlagToHandle (Graphite hostport) = do
     (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
     portNum = read port :: Int
 
-outputFlagToAction :: Flag -> (Handle -> IO a) -> IO a
-outputFlagToAction Debug action               = action stdout
-outputFlagToAction (Graphite hostport) action = do
-  h <- connectTo host (PortNumber $ fromIntegral portNum)
-  hSetBuffering h LineBuffering
-  action h
-  where
-    (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
-    portNum = read port :: Int
-outputFlagToAction _ _                        = error "Something has gone horribly wrong."
-
-produceOutput :: (IMetricState a, NFData a) => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
-produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
-  where
-    result = concat $ getResultsBufferedBySecond tz 10 (zip timestamps input) metric
-    timestamps = {-# SCC "getTime" #-} map getTime input
-
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []
 
@@ -117,14 +100,13 @@ main = do
   args <- getArgs
   (opts, _) <- parseOptions args
   when (Help `elem` opts) $ putStrLn (usageInfo header options) >> exitSuccess
-  let outputActions = map outputFlagToAction $ filter isOutputFlag opts
   handles           <- mapM outputFlagToHandle $ filter isOutputFlag opts
-  when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
+  when (null handles) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
 
   tz <- getCurrentTimeZone
   input <- B.getContents
-  let inputLines = B.split '\n' input
+  let inputLines = {-# SCC "input" #-}B.split '\n' input
 
 #ifdef USE_EKG
   let isEKGPort (EKGPort _) = True
@@ -135,18 +117,19 @@ main = do
 
   ekg <- forkServer (SB.pack "localhost") ekgPort
   lineCounter <- getCounter (T.pack "loglines") ekg
-  _ <- forkChild $ countLines lineCounter inputLines
+  -- _ <- forkChild $ countLines lineCounter inputLines
 #endif
 
-  let timestamps = map (force . getTime) inputLines
+  let timestamps = map ({-# SCC "getTime" #-}force . getTime) inputLines
+      statesByInput :: [[MetricState]]
+      statesByInput = {-# SCC "statesByInput" #-}withStrategy (parBuffer 10 $ evalList rdeepseq) $ map ({-# SCC "sBIlambda" #-}\i -> map ($!!i) metrics) inputLines
       results :: [[[(String, String, String)]]]
-      results = parMap rdeepseq (getResultsBufferedBySecond tz 10 (zip timestamps inputLines)) metrics
+      results = {-# SCC "gRBBS" #-}map (\s -> getResultsBufferedBySecond tz 10 (zip timestamps s)) ({-# SCC "transpose" #-}transpose statesByInput)
       outs :: [(String, String, String) -> IO ()]
       outs = map (flip sendToCarbon) handles
-      ts :: [IO ()]
-      ts = map (\o -> mapM_ (mapM_ o . concat) results) outs
-      threads = map (\metric -> mapM_ ($ produceOutput tz metric inputLines) outputActions) metrics :: [IO ()]
+      threads :: [IO ()]
+      threads = map (\o -> mapM_ (mapM_ o . concat) results) outs
 
-  mapM_ forkChild ts
+  mapM_ forkChild threads
 
   waitForChildren

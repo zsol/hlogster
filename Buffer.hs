@@ -13,8 +13,7 @@ import           Data.Time.LocalTime        (TimeZone, localTimeToUTC)
 import           Metrics.Common (IMetricState(combine, toResults), Metric, Results, Timestamp)
 import           Parsers
 import           System.Locale
-import Control.Parallel.Strategies
-
+import Control.DeepSeq
 type Time = SB.ByteString
 type (RingBuffer a) = C.CList (Time, a)
 
@@ -27,10 +26,8 @@ size = C.size
 isEmpty :: RingBuffer a -> Bool
 isEmpty = C.isEmpty
 
-getResultsBufferedBySecond :: (IMetricState a, NFData a) => TimeZone -> Int -> [(Either String Time, B.ByteString)] -> Metric a -> [Results]
-getResultsBufferedBySecond tz maxSize timeInput metric = evalState ({-# SCC "process" #-} process tz maxSize timesStates) empty
-  where
-    timesStates = map (\(t, i) -> (t, {-# SCC "metric" #-}metric [i])) timeInput
+getResultsBufferedBySecond :: (IMetricState a, NFData a) => TimeZone -> Int -> [(Either String Time, a)] -> [Results]
+getResultsBufferedBySecond tz maxSize timesStates = evalState ({-# SCC "process" #-} process tz maxSize timesStates) empty
 
 getTime :: B.ByteString -> Either String Time
 getTime = getDatetime

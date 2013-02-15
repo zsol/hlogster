@@ -6,8 +6,10 @@ import Metrics.Common
 import Parsers (getFields)
 import Data.Either
 
-countFields :: [(Int, SB.ByteString)] -> String -> [B.ByteString] -> MetricState
-countFields spec nameString input = CounterMetricState nameString ({-# SCC "countField" #-}fromIntegral $ length $ rights $ map match input)
+countFields :: [(Int, SB.ByteString)] -> String -> B.ByteString -> MetricState
+countFields spec nameString input = CounterMetricState nameString $ case match input of
+  Right _ -> 1
+  Left _  -> 0
   where
     match line = do
       fields <- getFields (map fst spec) line

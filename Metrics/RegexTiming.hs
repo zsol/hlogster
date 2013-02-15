@@ -15,8 +15,8 @@ select :: Ix i => [i] -> Array i a -> [a]
 select [] _ = []
 select (x:xs) arr = arr A.! x : select xs arr
 
-match :: Regex -> [B.ByteString] -> [MatchText B.ByteString]
-match regex input = {-# SCC "matchConcat" #-} concat $ map ({-# SCC "matchAllText" #-} matchAllText regex) input
+match :: Regex -> B.ByteString -> [MatchText B.ByteString]
+match = {-# SCC "matchAllText" #-} matchAllText
 
 parseDouble :: B.ByteString -> Double
 parseDouble input = {-# SCC "parseDouble" #-} case parse double input of
@@ -41,7 +41,7 @@ durationByName durations names = {-# SCC "byname" #-} case durations of
     [] -> [zip (repeat B.empty) durations]
     _  -> groupBy ((==) `on` fst) (zip names durations)
 
-timingRegex :: Regex -> String -> Int -> [Int] -> [B.ByteString] -> MetricState
+timingRegex :: Regex -> String -> Int -> [Int] -> B.ByteString -> MetricState
 timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.fromList $ map buildName states
   where
     buildName (suffix, metricStates)
@@ -56,7 +56,7 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
     state durs = {-# SCC "state1" #-} TimingMetricState {min' = minimum durs, max' = maximum durs,
                                     avg' = average durs, num' = fromIntegral $ length durs}
 
-timingRegex2 :: Regex -> String -> Int -> [Int] -> [B.ByteString] -> MetricState
+timingRegex2 :: Regex -> String -> Int -> [Int] -> B.ByteString -> MetricState
 timingRegex2 regex nameString durationGroup nameSuffixes input = Timings2 $ M.fromList $ map buildName states
   where
     buildName (suffix, metricStates)

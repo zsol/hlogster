@@ -9,22 +9,19 @@ import qualified Data.Aeson as J
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
 
-catMaybesInFst :: [(Maybe t, t1)] -> [(t, t1)]
-catMaybesInFst [] = []
-catMaybesInFst ((Nothing, _):a) = catMaybesInFst a
-catMaybesInFst ((Just a, a'):as) = (a, a') : catMaybesInFst as
-
 -- todo: track only items in jsonKeys
-jsonMetrics :: String -> [(Int, SB.ByteString)] -> Int -> [String] -> [B.ByteString] -> MetricState
-jsonMetrics nameString fields jsonIndex jsonKeys input = JsonMetricState $ M.fromList $ keepMetrics $ concat $ map buildName jsons
+jsonMetrics :: String -> [(Int, SB.ByteString)] -> Int -> [String] -> B.ByteString -> MetricState
+jsonMetrics nameString fields jsonIndex jsonKeys input = JsonMetricState $ M.fromList $ case matching input of
+      Right True -> keepMetrics $ buildName $ (json, getFields [3] input)
+      _          -> []
   where
     matching line = do
       fs <- getFields (map fst fields) line
       return $ and $ map (\(x,y) -> x == y) (zip fs (map snd fields))
-    matchingLines = map (\x -> (B.unwords $ drop (jsonIndex - 1) $ B.words $ snd x, getFields [3] $ snd x)) $
-                    filter ((== Right True) . fst) $
-                    map (\(x,y) -> (matching x, y)) (zip input input)
-    jsons = catMaybesInFst $ map (\(x, y) -> (J.decode' x, y)) matchingLines :: [(J.Object, Either String [SB.ByteString])]
+
+    json = case J.decode' $ B.unwords $ drop (jsonIndex - 1) $ B.words input of
+      Just x  -> x
+      Nothing -> HM.empty
     buildName :: (J.Object, Either String [SB.ByteString]) -> [(T.Text, J.Value)]
     buildName (obj, Right [namePrefix]) = map (\(x, y) -> (T.pack $ (SB.unpack (fst $ SB.breakSubstring (SB.pack ".prezi.private") namePrefix)) ++ "." ++ (T.unpack x), y)) (HM.toList obj)
     buildName (obj, _) = HM.toList obj
