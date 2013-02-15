@@ -18,6 +18,7 @@ import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
 import Control.Parallel.Strategies
+import Control.DeepSeq
 #ifdef USE_EKG
 import qualified Data.Text as T
 import System.Remote.Monitoring
@@ -58,6 +59,16 @@ parseOptions argv = case getOpt Permute options argv of
   (o, n, []) -> return (o, n)
   (_, _, es) -> ioError $ userError $ concat es ++ usageInfo header options
 
+outputFlagToHandle :: Flag -> IO Handle
+outputFlagToHandle Debug = return stdout
+outputFlagToHandle (Graphite hostport) = do
+  h <- connectTo host (PortNumber $ fromIntegral portNum)
+  hSetBuffering h LineBuffering
+  return h
+  where
+    (host:_:port:_) = groupBy (\a b -> a /= ':' && b /= ':') hostport -- bleh
+    portNum = read port :: Int
+
 outputFlagToAction :: Flag -> (Handle -> IO a) -> IO a
 outputFlagToAction Debug action               = action stdout
 outputFlagToAction (Graphite hostport) action = do
@@ -73,7 +84,7 @@ produceOutput :: (IMetricState a, NFData a) => TimeZone -> Metric a -> [B.ByteSt
 produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
     result = concat $ getResultsBufferedBySecond tz 10 (zip timestamps input) metric
-    timestamps = {-# SCC "getTime" #-} withStrategy (parBuffer 10 rdeepseq) $ map getTime input
+    timestamps = {-# SCC "getTime" #-} map getTime input
 
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []
@@ -107,6 +118,7 @@ main = do
   (opts, _) <- parseOptions args
   when (Help `elem` opts) $ putStrLn (usageInfo header options) >> exitSuccess
   let outputActions = map outputFlagToAction $ filter isOutputFlag opts
+  handles           <- mapM outputFlagToHandle $ filter isOutputFlag opts
   when (null outputActions) $ ioError (userError "Please specify at least one output destination (-g or -d)")
   let metrics = map makeMetric config
 
@@ -126,8 +138,15 @@ main = do
   _ <- forkChild $ countLines lineCounter inputLines
 #endif
 
-  let threads = map (\metric -> mapM_ ($ produceOutput tz metric inputLines) outputActions) metrics :: [IO ()]
+  let timestamps = map (force . getTime) inputLines
+      results :: [[[(String, String, String)]]]
+      results = parMap rdeepseq (getResultsBufferedBySecond tz 10 (zip timestamps inputLines)) metrics
+      outs :: [(String, String, String) -> IO ()]
+      outs = map (flip sendToCarbon) handles
+      ts :: [IO ()]
+      ts = map (\o -> mapM_ (mapM_ o . concat) results) outs
+      threads = map (\metric -> mapM_ ($ produceOutput tz metric inputLines) outputActions) metrics :: [IO ()]
 
-  mapM_ forkChild threads
+  mapM_ forkChild ts
 
   waitForChildren

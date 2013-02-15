@@ -5,7 +5,6 @@ import qualified Data.ByteString.Lazy.Char8      as B
 import Text.Regex.Base.RegexLike (matchAllText, MatchText)
 import Text.Regex.PCRE.ByteString.Lazy
 import qualified Data.Map                        as M
-import Control.Parallel.Strategies     (parMap, rdeepseq)
 import           Data.Array                      as A
 import Data.List (groupBy)
 import Data.Function (on)
@@ -17,7 +16,7 @@ select [] _ = []
 select (x:xs) arr = arr A.! x : select xs arr
 
 match :: Regex -> [B.ByteString] -> [MatchText B.ByteString]
-match regex input = {-# SCC "matchConcat" #-} concat $ parMap rdeepseq ({-# SCC "matchAllText" #-} matchAllText regex) input
+match regex input = {-# SCC "matchConcat" #-} concat $ map ({-# SCC "matchAllText" #-} matchAllText regex) input
 
 parseDouble :: B.ByteString -> Double
 parseDouble input = {-# SCC "parseDouble" #-} case parse double input of
@@ -25,10 +24,10 @@ parseDouble input = {-# SCC "parseDouble" #-} case parse double input of
   Fail _ _ _ -> 0
 
 duration :: Int -> [MatchText B.ByteString] -> [Double]
-duration durationGroup matches = {-# SCC "duration" #-}  parMap rdeepseq (parseDouble . fst . (A.! durationGroup)) matches
+duration durationGroup matches = {-# SCC "duration" #-}  map (parseDouble . fst . (A.! durationGroup)) matches
 
 name :: [Int] -> [MatchText B.ByteString] -> [B.ByteString]
-name nameSuffixes matches = {-# SCC "name" #-}  parMap rdeepseq (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
+name nameSuffixes matches = {-# SCC "name" #-}  map (B.intercalate (B.pack ".") . map fst . select nameSuffixes) matches
 
 pair :: ([b] -> t) -> [(a, b)] -> (a, t)
 pair _ [] = error "Internal error in timingRegex: pair applied to empty list"
