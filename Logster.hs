@@ -122,7 +122,7 @@ main = do
 
   let timestamps = map ({-# SCC "getTime" #-}force . getTime) inputLines
       statesByInput :: [[MetricState]]
-      statesByInput = {-# SCC "statesByInput" #-}withStrategy (parBuffer 10 $ evalList rdeepseq) $ map ({-# SCC "sBIlambda" #-}\i -> map ($!!i) metrics) inputLines
+      statesByInput = {-# SCC "sBI" #-}withStrategy (parBuffer 10 $ evalList rdeepseq) $ map ({-# SCC "sBIlam" #-}\i -> map ($!!i) metrics) inputLines
       results :: [[[(String, String, String)]]]
       results = {-# SCC "gRBBS" #-}map (\s -> getResultsBufferedBySecond tz 10 (zip timestamps s)) ({-# SCC "transpose" #-}transpose statesByInput)
       outs :: [(String, String, String) -> IO ()]
