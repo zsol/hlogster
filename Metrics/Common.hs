@@ -27,7 +27,7 @@ instance NFData ByteString where
 
 instance NFData MetricState
 
-type Metric a = [B.ByteString] -> a
+type Metric a = B.ByteString -> a
 type Timestamp = String
 type Results = [(String, String, Timestamp)]
 
@@ -88,7 +88,7 @@ percentile = quantile 100
 average :: Fractional a => [a] -> a
 average a = sum a / fromIntegral (length a)
 
-getResults :: IMetricState a => Metric a -> [B.ByteString] -> Results
+getResults :: IMetricState a => Metric a -> B.ByteString -> Results
 getResults metric input = toResultsNow $ metric input
 
 -- makeEventCounter x = undefined

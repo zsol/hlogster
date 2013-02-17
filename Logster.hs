@@ -72,8 +72,9 @@ outputFlagToAction _ _                        = error "Something has gone horrib
 produceOutput :: (IMetricState a, NFData a) => TimeZone -> Metric a -> [B.ByteString] -> Handle -> IO ()
 produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
-    result = concat $ getResultsBufferedBySecond tz 10 (zip timestamps input) metric
+    result = concat $ getResultsBufferedBySecond tz 10 (zip timestamps states)
     timestamps = {-# SCC "getTime" #-} map getTime input
+    states = map metric input
 
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []
