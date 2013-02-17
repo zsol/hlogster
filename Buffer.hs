@@ -30,7 +30,7 @@ isEmpty = C.isEmpty
 getResultsBufferedBySecond :: (IMetricState a, NFData a) => TimeZone -> Int -> [(Either String Time, B.ByteString)] -> Metric a -> [Results]
 getResultsBufferedBySecond tz maxSize timeInput metric = evalState ({-# SCC "process" #-} process tz maxSize timesStates) empty
   where
-    timesStates = withStrategy (parBuffer 10 rdeepseq) $ map (\(t, i) -> (t, {-# SCC "metric" #-}metric [i])) timeInput
+    timesStates = map (\(t, i) -> (t, metric [i])) timeInput
 
 getTime :: B.ByteString -> Either String Time
 getTime = getDatetime

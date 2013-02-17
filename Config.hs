@@ -1,1 +1,1 @@
-examples/ExampleConfig.hs
+PreziConfig.hs

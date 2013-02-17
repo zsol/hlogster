@@ -17,7 +17,7 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 import           System.IO.Unsafe           (unsafePerformIO)
-import Control.Parallel.Strategies
+import Control.DeepSeq
 #ifdef USE_EKG
 import qualified Data.Text as T
 import System.Remote.Monitoring
@@ -73,7 +73,7 @@ produceOutput :: (IMetricState a, NFData a) => TimeZone -> Metric a -> [B.ByteSt
 produceOutput tz metric input handle = mapM_ (`sendToCarbon` handle) result
   where
     result = concat $ getResultsBufferedBySecond tz 10 (zip timestamps input) metric
-    timestamps = {-# SCC "getTime" #-} withStrategy (parBuffer 10 rdeepseq) $ map getTime input
+    timestamps = {-# SCC "getTime" #-} map getTime input
 
 children :: MVar [a]
 children = unsafePerformIO $ newMVar []
