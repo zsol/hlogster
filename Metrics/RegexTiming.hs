@@ -1,4 +1,4 @@
-module Metrics.RegexTiming(timingRegex, timingRegex2) where
+module Metrics.RegexTiming(timingRegex2) where
 
 import Metrics.Common
 import qualified Data.ByteString.Lazy.Char8      as B
@@ -10,6 +10,7 @@ import Data.List (groupBy)
 import Data.Function (on)
 import Data.Attoparsec.ByteString.Lazy
 import Data.Attoparsec.ByteString.Char8 (double)
+import qualified Data.Sequence as S
 
 select :: Ix i => [i] -> Array i a -> [a]
 select [] _ = []
@@ -40,21 +41,6 @@ durationByName durations names = {-# SCC "byname" #-} case durations of
     [] -> [zip (repeat B.empty) durations]
     _  -> groupBy ((==) `on` fst) (zip names durations)
 
-timingRegex :: Regex -> String -> Int -> [Int] -> B.ByteString -> MetricState
-timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.fromList $ map buildName states
-  where
-    buildName (suffix, metricStates)
-      | B.null suffix = (nameString, metricStates)
-      | otherwise     = (nameString ++ "." ++ B.unpack suffix, metricStates)
-    matches = match regex input
-    durations = duration durationGroup matches
-    names = name nameSuffixes matches
-    durationsByName = durationByName durations names
-    states :: [(B.ByteString, TimingMetricState)]
-    states = map (pair state) durationsByName
-    state durs = {-# SCC "state1" #-} TimingMetricState {min' = minimum durs, max' = maximum durs,
-                                    avg' = average durs, num' = fromIntegral $ length durs}
-
 timingRegex2 :: Regex -> String -> Int -> [Int] -> B.ByteString -> MetricState
 timingRegex2 regex nameString durationGroup nameSuffixes input = Timings2 $ M.fromList $ map buildName states
   where
@@ -67,4 +53,4 @@ timingRegex2 regex nameString durationGroup nameSuffixes input = Timings2 $ M.fr
     durations = duration durationGroup matches
     names = name nameSuffixes matches
     durationsByName = durationByName durations names
-    states = map (pair id) durationsByName
+    states = map (\(k,v) -> (k, S.fromList v)) (map (pair id) durationsByName)
