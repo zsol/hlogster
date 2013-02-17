@@ -33,7 +33,6 @@ pair :: ([b] -> t) -> [(a, b)] -> (a, t)
 pair _ [] = error "Internal error in timingRegex: pair applied to empty list"
 pair state durs@((name,_):_) = {-# SCC "pair" #-}  (name, state (map snd durs))
 
-
 durationByName :: [b] -> [B.ByteString] -> [[(B.ByteString, b)]]
 durationByName durations names = {-# SCC "byname" #-} case durations of
   [] -> []
@@ -59,9 +58,11 @@ timingRegex regex nameString durationGroup nameSuffixes input = Timings $ M.from
 timingRegex2 :: Regex -> String -> Int -> [Int] -> B.ByteString -> MetricState
 timingRegex2 regex nameString durationGroup nameSuffixes input = Timings2 $ M.fromList $ map buildName states
   where
-    buildName (suffix, metricStates)
-      | B.null suffix = (nameString, metricStates)
-      | otherwise     = (nameString ++ "." ++ B.unpack suffix, metricStates)
+    buildName ~(suffix, metricStates) = (metricName, metricStates)
+      where
+        metricName
+          | B.null suffix = nameString ++ "." ++ B.unpack suffix
+          | otherwise     = nameString
     matches = match regex input
     durations = duration durationGroup matches
     names = name nameSuffixes matches
